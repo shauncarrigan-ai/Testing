@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useStore } from './src/store';
 import {
@@ -39,9 +40,9 @@ export default function App() {
   }, [settings.notificationsEnabled, settings.dailyReminderTime]);
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="auto" />
       <AppNavigator />
-    </>
+    </SafeAreaProvider>
   );
 }
