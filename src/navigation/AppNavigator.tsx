@@ -6,7 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import TodayScreen from '../screens/TodayScreen';
-import ScheduleScreen from '../screens/ScheduleScreen';
+import CalendarScreen from '../screens/CalendarScreen';
 import TemplatesScreen from '../screens/TemplatesScreen';
 import TemplateEditScreen from '../screens/TemplateEditScreen';
 import ProjectsScreen from '../screens/ProjectsScreen';
@@ -122,8 +122,8 @@ const MainTabs: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name="Schedule"
-        component={ScheduleScreen}
+        name="Calendar"
+        component={CalendarScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>🗓</Text>

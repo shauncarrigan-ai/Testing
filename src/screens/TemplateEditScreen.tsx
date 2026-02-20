@@ -11,16 +11,28 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
-import { getDayLabel } from '../utils/dateUtils';
-import { RootStackParamList, TemplateItem } from '../types';
+import { getDayLabel, WEEK_DAYS } from '../utils/dateUtils';
+import { DayOfWeek, RootStackParamList, TemplateItem } from '../types';
 
 type Route = RouteProp<RootStackParamList, 'TemplateEdit'>;
 type Nav = StackNavigationProp<RootStackParamList>;
+
+// Short labels for the day chips
+const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
+  { label: 'Mo', day: 'monday' },
+  { label: 'Tu', day: 'tuesday' },
+  { label: 'We', day: 'wednesday' },
+  { label: 'Th', day: 'thursday' },
+  { label: 'Fr', day: 'friday' },
+  { label: 'Sa', day: 'saturday' },
+  { label: 'Su', day: 'sunday' },
+];
 
 const TemplateEditScreen: React.FC = () => {
   const route = useRoute<Route>();
@@ -31,21 +43,44 @@ const TemplateEditScreen: React.FC = () => {
   const weeklyTemplate = useStore((s) => s.weeklyTemplate);
   const addTemplateItem = useStore((s) => s.addTemplateItem);
   const deleteTemplateItem = useStore((s) => s.deleteTemplateItem);
-  const updateTemplateItem = useStore((s) => s.updateTemplateItem);
 
   const items = weeklyTemplate[day];
 
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('');
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([day]);
   const inputRef = useRef<TextInput>(null);
+
+  const allSelected = selectedDays.length === 7;
+
+  const toggleDay = (d: DayOfWeek) => {
+    setSelectedDays((prev) =>
+      prev.includes(d)
+        ? prev.length === 1
+          ? prev // keep at least one day
+          : prev.filter((x) => x !== d)
+        : [...prev, d]
+    );
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedDays([day]);
+    } else {
+      setSelectedDays(WEEK_DAYS);
+    }
+  };
 
   const handleAdd = () => {
     const trimmed = newTitle.trim();
     if (!trimmed) return;
     const timeVal = newTime.trim() || undefined;
-    addTemplateItem(day, trimmed, timeVal);
+    selectedDays.forEach((d) => {
+      addTemplateItem(d, trimmed, timeVal);
+    });
     setNewTitle('');
     setNewTime('');
+    setSelectedDays([day]);
     inputRef.current?.focus();
   };
 
@@ -153,10 +188,74 @@ const TemplateEditScreen: React.FC = () => {
               backgroundColor: colors.surface,
               borderTopColor: colors.separator,
               paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
+              paddingTop: spacing.sm,
+              paddingBottom: spacing.sm,
             },
           ]}
         >
+          {/* Day selector */}
+          <View style={styles.dayRow}>
+            <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
+              Add to:
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
+              {/* Everyday chip */}
+              <TouchableOpacity
+                onPress={toggleAll}
+                style={[
+                  styles.dayChip,
+                  {
+                    backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
+                    borderColor: allSelected ? colors.accent : colors.border,
+                    borderRadius: radius.sm,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dayChipText,
+                    { color: allSelected ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  Everyday
+                </Text>
+              </TouchableOpacity>
+
+              {/* Individual day chips */}
+              {DAY_CHIPS.map(({ label, day: d }) => {
+                const active = selectedDays.includes(d) && !allSelected;
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => !allSelected && toggleDay(d)}
+                    style={[
+                      styles.dayChip,
+                      styles.dayChipSm,
+                      {
+                        backgroundColor: active
+                          ? colors.accentLight
+                          : colors.surfaceElevated,
+                        borderColor: active ? colors.accent : colors.border,
+                        borderRadius: radius.sm,
+                        opacity: allSelected ? 0.4 : 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayChipText,
+                        { color: active ? colors.accent : colors.textSecondary },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Title + time + add button */}
           <View style={styles.addRow}>
             <TextInput
               ref={inputRef}
@@ -252,6 +351,34 @@ const styles = StyleSheet.create({
   itemTime: { fontSize: 12, marginTop: 2 },
   deleteBtn: { fontSize: 16, paddingLeft: 12 },
   addBar: { borderTopWidth: StyleSheet.hairlineWidth },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  dayRowLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  dayChips: {
+    flexDirection: 'row',
+    gap: 5,
+    alignItems: 'center',
+  },
+  dayChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  dayChipSm: {
+    paddingHorizontal: 8,
+  },
+  dayChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',

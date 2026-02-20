@@ -87,6 +87,39 @@ const AssignDaysModal: React.FC<AssignDaysModalProps> = ({ task, onClose }) => {
           {task.title}
         </Text>
 
+        {/* Quick-select buttons */}
+        <View style={[styles.quickRow, { paddingHorizontal: spacing.md }]}>
+          {[
+            { label: 'Every day', days: WEEK_DAYS },
+            { label: 'Weekdays', days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as DayOfWeek[] },
+            { label: 'Weekends', days: ['saturday', 'sunday'] as DayOfWeek[] },
+            { label: 'None', days: [] as DayOfWeek[] },
+          ].map(({ label, days: qDays }) => {
+            const isActive =
+              qDays.length > 0 &&
+              qDays.length === selected.length &&
+              qDays.every((d) => selected.includes(d));
+            return (
+              <TouchableOpacity
+                key={label}
+                onPress={() => setSelected(qDays)}
+                style={[
+                  styles.quickBtn,
+                  {
+                    backgroundColor: isActive ? colors.accentLight : colors.surfaceElevated,
+                    borderColor: isActive ? colors.accent : colors.border,
+                    borderRadius: radius.sm,
+                  },
+                ]}
+              >
+                <Text style={[styles.quickBtnText, { color: isActive ? colors.accent : colors.textSecondary }]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={[styles.daysGrid, { paddingHorizontal: spacing.md }]}>
           {WEEK_DAYS.map((day) => {
             const active = selected.includes(day);
@@ -655,6 +688,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  quickBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  quickBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   daysGrid: {
     flexDirection: 'row',
