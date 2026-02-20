@@ -70,11 +70,12 @@ export type RootStackParamList = {
   TemplateEdit: { day: DayOfWeek };
   ProjectDetail: { projectId: string };
   Stats: undefined;
-  Settings: undefined;
 };
 
 export type MainTabParamList = {
   Today: undefined;
+  Schedule: undefined;
   Templates: undefined;
   Projects: undefined;
+  Settings: undefined;
 };

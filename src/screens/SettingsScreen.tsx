@@ -10,7 +10,6 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import { requestPermissions, scheduleDailyReminder } from '../services/notifications';
@@ -20,7 +19,6 @@ const REMINDER_TIMES = [
 ];
 
 const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation();
   const { colors, spacing, radius, isDark } = useTheme();
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -60,7 +58,7 @@ const SettingsScreen: React.FC = () => {
 
       <View
         style={[
-          styles.navHeader,
+          styles.header,
           {
             borderBottomColor: colors.separator,
             paddingHorizontal: spacing.md,
@@ -68,11 +66,7 @@ const SettingsScreen: React.FC = () => {
           },
         ]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backBtn, { color: colors.accent }]}>‹ Back</Text>
-        </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: colors.text }]}>Settings</Text>
-        <View style={{ width: 60 }} />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
       </View>
 
       <ScrollView
@@ -265,15 +259,15 @@ const SettingSection: React.FC<{
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  navHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+  header: {
+    paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  backBtn: { fontSize: 17, width: 60 },
-  navTitle: { fontSize: 17, fontWeight: '600' },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',

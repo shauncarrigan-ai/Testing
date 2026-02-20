@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -50,14 +51,20 @@ const TodayScreen: React.FC = () => {
   const today = getTodayString();
   const yesterday = addDays(today, -1);
 
-  // ── On mount: rollover + generate ─────────────────────────────────────────
+  // ── On mount: rollover ────────────────────────────────────────────────────
   useEffect(() => {
     if (lastProcessedDate !== yesterday) {
       processRollover(yesterday, today);
     }
-    generateDailyItems(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Re-generate on every focus so new template/task items appear immediately ─
+  useFocusEffect(
+    useCallback(() => {
+      generateDailyItems(today);
+    }, [generateDailyItems, today])
+  );
 
   const todayItems = dailyItems[today] ?? [];
 
