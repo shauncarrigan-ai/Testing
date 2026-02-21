@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Modal,
 } from 'react-native';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
@@ -20,7 +21,7 @@ type Period = 'AM' | 'PM';
 const ITEM_H = 36;
 const VISIBLE_ITEMS = 3;
 const CAROUSEL_H = ITEM_H * VISIBLE_ITEMS; // 108
-const CAROUSEL_PAD = CAROUSEL_H / 2 - ITEM_H / 2; // 36 — centers item at scrollY = idx * ITEM_H
+const CAROUSEL_PAD = CAROUSEL_H / 2 - ITEM_H / 2; // 36
 
 interface HourCarouselProps {
   hours: number[];
@@ -42,7 +43,6 @@ const HourCarousel: React.FC<HourCarouselProps> = ({
   const scrollRef = useRef<ScrollView>(null);
   const selectedIdx = hours.indexOf(selectedHour);
 
-  // Scroll to selected hour on mount / format change
   useEffect(() => {
     if (selectedIdx >= 0) {
       const timer = setTimeout(() => {
@@ -60,7 +60,6 @@ const HourCarousel: React.FC<HourCarouselProps> = ({
 
   return (
     <View style={{ height: CAROUSEL_H, overflow: 'hidden' }}>
-      {/* Center highlight stripe */}
       <View
         pointerEvents="none"
         style={[
@@ -117,9 +116,9 @@ const SettingsScreen: React.FC = () => {
   const updateSettings = useStore((s) => s.updateSettings);
 
   const clockFormat = settings.clockFormat ?? '12';
-
   const storedHour = parseInt(settings.dailyReminderTime.split(':')[0], 10);
   const [period, setPeriod] = useState<Period>(storedHour < 12 ? 'AM' : 'PM');
+  const [timeModalVisible, setTimeModalVisible] = useState(false);
 
   const getDisplayHour = (hour24: number): number => {
     if (clockFormat === '24') return hour24;
@@ -285,7 +284,7 @@ const SettingsScreen: React.FC = () => {
               {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm + 4,
-                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomWidth: settings.notificationsEnabled ? StyleSheet.hairlineWidth : 0,
                 borderBottomColor: colors.separator,
               },
             ]}
@@ -299,117 +298,28 @@ const SettingsScreen: React.FC = () => {
             />
           </View>
 
-          {/* Reminder time + AM/PM + hour carousel — visible when enabled */}
+          {/* Tappable "Set time" row — visible only when notifications enabled */}
           {settings.notificationsEnabled && (
-            <View
-              style={{
-                paddingHorizontal: spacing.md,
-                paddingTop: spacing.sm + 4,
-                paddingBottom: spacing.md,
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: colors.separator,
-              }}
+            <TouchableOpacity
+              onPress={() => setTimeModalVisible(true)}
+              style={[
+                styles.row,
+                {
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm + 4,
+                },
+              ]}
+              activeOpacity={0.7}
             >
-              {/* Label + current time */}
-              <View style={[styles.row, { marginBottom: spacing.sm }]}>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder time</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Set time</Text>
+              <View style={styles.timeChevronRow}>
                 <Text style={[styles.selectedTimeText, { color: colors.accent }]}>
                   {formatSelectedTime()}
                 </Text>
+                <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
               </View>
-
-              {/* AM / PM selector (12hr only) */}
-              {clockFormat === '12' && (
-                <View style={[styles.segmentRowFull, { marginBottom: spacing.sm }]}>
-                  <TouchableOpacity
-                    onPress={() => handlePeriodChange('AM')}
-                    style={[
-                      styles.periodBtn,
-                      {
-                        backgroundColor: period === 'AM' ? colors.accentLight : colors.surfaceElevated,
-                        borderColor: period === 'AM' ? colors.accent : colors.border,
-                        borderRadius: radius.sm,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.periodBtnText, { color: period === 'AM' ? colors.accent : colors.textSecondary }]}>
-                      AM
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handlePeriodChange('PM')}
-                    style={[
-                      styles.periodBtn,
-                      {
-                        backgroundColor: period === 'PM' ? colors.accentLight : colors.surfaceElevated,
-                        borderColor: period === 'PM' ? colors.accent : colors.border,
-                        borderRadius: radius.sm,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.periodBtnText, { color: period === 'PM' ? colors.accent : colors.textSecondary }]}>
-                      PM
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Hour carousel */}
-              <HourCarousel
-                hours={hoursToShow}
-                selectedHour={selectedDisplayHour}
-                onSelect={handleHourSelect}
-                clockFormat={clockFormat}
-                colors={colors}
-                radius={radius}
-              />
-            </View>
+            </TouchableOpacity>
           )}
-
-          {/* Clock format — always visible at the bottom of Notifications */}
-          <View
-            style={[
-              styles.row,
-              {
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm + 4,
-              },
-            ]}
-          >
-            <Text style={[styles.rowLabel, { color: colors.text }]}>Clock format</Text>
-            <View style={styles.segmentRow}>
-              <TouchableOpacity
-                onPress={() => handleClockFormat('12')}
-                style={[
-                  styles.segmentBtn,
-                  styles.segmentBtnLeft,
-                  {
-                    backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
-                    borderColor: colors.accent,
-                  },
-                ]}
-              >
-                <Text style={[styles.segmentBtnText, { color: clockFormat === '12' ? '#fff' : colors.accent }]}>
-                  12hr
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleClockFormat('24')}
-                style={[
-                  styles.segmentBtn,
-                  styles.segmentBtnRight,
-                  {
-                    backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
-                    borderColor: colors.accent,
-                  },
-                ]}
-              >
-                <Text style={[styles.segmentBtnText, { color: clockFormat === '24' ? '#fff' : colors.accent }]}>
-                  24hr
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
 
         {/* ── About ── */}
@@ -439,6 +349,133 @@ const SettingsScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* ── Time Picker Modal ── */}
+      <Modal
+        visible={timeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTimeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Set Reminder Time</Text>
+
+            {/* Clock format */}
+            <View style={[styles.row, { marginBottom: spacing.md }]}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Clock format</Text>
+              <View style={styles.segmentRow}>
+                <TouchableOpacity
+                  onPress={() => handleClockFormat('12')}
+                  style={[
+                    styles.segmentBtn,
+                    styles.segmentBtnLeft,
+                    {
+                      backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
+                      borderColor: colors.accent,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.segmentBtnText, { color: clockFormat === '12' ? '#fff' : colors.accent }]}>
+                    12hr
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleClockFormat('24')}
+                  style={[
+                    styles.segmentBtn,
+                    styles.segmentBtnRight,
+                    {
+                      backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
+                      borderColor: colors.accent,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.segmentBtnText, { color: clockFormat === '24' ? '#fff' : colors.accent }]}>
+                    24hr
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* AM / PM selector (12hr only) */}
+            {clockFormat === '12' && (
+              <View style={[styles.segmentRowFull, { marginBottom: spacing.md }]}>
+                <TouchableOpacity
+                  onPress={() => handlePeriodChange('AM')}
+                  style={[
+                    styles.periodBtn,
+                    {
+                      backgroundColor: period === 'AM' ? colors.accentLight : colors.surfaceElevated,
+                      borderColor: period === 'AM' ? colors.accent : colors.border,
+                      borderRadius: radius.sm,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.periodBtnText, { color: period === 'AM' ? colors.accent : colors.textSecondary }]}>
+                    AM
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handlePeriodChange('PM')}
+                  style={[
+                    styles.periodBtn,
+                    {
+                      backgroundColor: period === 'PM' ? colors.accentLight : colors.surfaceElevated,
+                      borderColor: period === 'PM' ? colors.accent : colors.border,
+                      borderRadius: radius.sm,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.periodBtnText, { color: period === 'PM' ? colors.accent : colors.textSecondary }]}>
+                    PM
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Hour carousel */}
+            <HourCarousel
+              hours={hoursToShow}
+              selectedHour={selectedDisplayHour}
+              onSelect={handleHourSelect}
+              clockFormat={clockFormat}
+              colors={colors}
+              radius={radius}
+            />
+
+            {/* Selected time label */}
+            <Text style={[styles.currentTimeLabel, { color: colors.accent, marginTop: spacing.sm }]}>
+              {formatSelectedTime()}
+            </Text>
+
+            {/* Done button */}
+            <TouchableOpacity
+              onPress={() => setTimeModalVisible(false)}
+              style={[
+                styles.doneBtn,
+                {
+                  backgroundColor: colors.accent,
+                  borderRadius: radius.md,
+                  marginTop: spacing.md,
+                },
+              ]}
+            >
+              <Text style={styles.doneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -484,9 +521,18 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 16 },
   rowValue: { fontSize: 15 },
+  timeChevronRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   selectedTimeText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  chevron: {
+    fontSize: 20,
+    fontWeight: '300',
   },
   segmentRow: {
     flexDirection: 'row',
@@ -528,7 +574,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // Carousel styles
   carouselHighlight: {
     position: 'absolute',
     left: 0,
@@ -541,6 +586,37 @@ const styles = StyleSheet.create({
     height: ITEM_H,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    padding: 24,
+    paddingBottom: 36,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  currentTimeLabel: {
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  doneBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  doneBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

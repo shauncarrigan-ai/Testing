@@ -10,8 +10,9 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import {
@@ -22,10 +23,12 @@ import {
 import CheckItem from '../components/CheckItem';
 import ProgressBar from '../components/ProgressBar';
 import EmptyState from '../components/EmptyState';
-import { DailyItem } from '../types';
-import { RootStackParamList } from '../types';
+import { DailyItem, RootStackParamList, MainTabParamList } from '../types';
 
-type Nav = StackNavigationProp<RootStackParamList>;
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Today'>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 // ─── Section list helpers ─────────────────────────────────────────────────────
 
@@ -175,28 +178,16 @@ const TodayScreen: React.FC = () => {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Calendar')}
-            style={[
-              styles.statsButton,
-              { backgroundColor: colors.surfaceElevated },
-            ]}
-            accessibilityLabel="View calendar"
-          >
-            <Text style={{ fontSize: 16 }}>🗓</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Stats')}
-            style={[
-              styles.statsButton,
-              { backgroundColor: colors.surfaceElevated },
-            ]}
-            accessibilityLabel="View stats"
-          >
-            <Text style={{ fontSize: 16 }}>📊</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Stats')}
+          style={[
+            styles.statsButton,
+            { backgroundColor: colors.surfaceElevated },
+          ]}
+          accessibilityLabel="View stats"
+        >
+          <Text style={{ fontSize: 16 }}>📊</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Progress ── */}

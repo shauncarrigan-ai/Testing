@@ -132,11 +132,11 @@ const MainTabs: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name="Projects"
-        component={ProjectsScreen}
+        name="Calendar"
+        component={CalendarScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>📁</Text>
+            <Text style={{ fontSize: 20, color }}>🗓</Text>
           ),
         }}
       />
@@ -169,8 +169,8 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="TemplateEdit" component={TemplateEditScreen} />
         <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+        <Stack.Screen name="Projects" component={ProjectsScreen} />
         <Stack.Screen name="Stats" component={StatsScreen} />
-        <Stack.Screen name="Calendar" component={CalendarScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
