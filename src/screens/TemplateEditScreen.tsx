@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   TextInput,
   StyleSheet,
@@ -17,14 +16,13 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
-import { getDayLabel, WEEK_DAYS } from '../utils/dateUtils';
+import { WEEK_DAYS } from '../utils/dateUtils';
 import { DayOfWeek, RootStackParamList, TemplateItem } from '../types';
 
 type Route = RouteProp<RootStackParamList, 'TemplateEdit'>;
 type Nav = StackNavigationProp<RootStackParamList>;
 type ScheduleMode = 'recurring' | 'one-time';
 
-// Short labels for the day chips
 const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
   { label: 'Mo', day: 'monday' },
   { label: 'Tu', day: 'tuesday' },
@@ -34,6 +32,14 @@ const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
   { label: 'Sa', day: 'saturday' },
   { label: 'Su', day: 'sunday' },
 ];
+
+const getTodayDate = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 const TemplateEditScreen: React.FC = () => {
   const route = useRoute<Route>();
@@ -53,30 +59,25 @@ const TemplateEditScreen: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([day]);
-  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('recurring');
-  const [dueDate, setDueDate] = useState('');
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one-time');
+  const [dueDate, setDueDate] = useState(getTodayDate());
   const inputRef = useRef<TextInput>(null);
 
   const activeItems = scheduleMode === 'recurring' ? recurringItems : oneTimeItems;
-
   const allSelected = selectedDays.length === 7;
 
   const toggleDay = (d: DayOfWeek) => {
     setSelectedDays((prev) =>
       prev.includes(d)
         ? prev.length === 1
-          ? prev // keep at least one day
+          ? prev
           : prev.filter((x) => x !== d)
         : [...prev, d]
     );
   };
 
   const toggleAll = () => {
-    if (allSelected) {
-      setSelectedDays([day]);
-    } else {
-      setSelectedDays(WEEK_DAYS);
-    }
+    setSelectedDays(allSelected ? [day] : WEEK_DAYS);
   };
 
   const handleAdd = () => {
@@ -88,7 +89,7 @@ const TemplateEditScreen: React.FC = () => {
       const dateVal = dueDate.trim();
       if (!dateVal) return;
       addOneTimeItem(trimmed, dateVal, timeVal);
-      setDueDate('');
+      setDueDate(getTodayDate());
     } else {
       selectedDays.forEach((d) => {
         addTemplateItem(d, trimmed, timeVal);
@@ -117,44 +118,7 @@ const TemplateEditScreen: React.FC = () => {
     ]);
   };
 
-  const renderItem = ({ item }: { item: TemplateItem }) => (
-    <View
-      style={[
-        styles.itemRow,
-        {
-          backgroundColor: colors.surface,
-          borderRadius: radius.md,
-          marginBottom: spacing.xs,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm + 4,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <View style={styles.itemContent}>
-        <Text style={[styles.itemTitle, { color: colors.text }]}>
-          {item.title}
-        </Text>
-        {item.dueDate && (
-          <Text style={[styles.itemTime, { color: colors.textTertiary }]}>
-            📅 {item.dueDate}
-          </Text>
-        )}
-        {item.time && (
-          <Text style={[styles.itemTime, { color: colors.textTertiary }]}>
-            ⏰ {item.time}
-          </Text>
-        )}
-      </View>
-      <TouchableOpacity
-        onPress={() => handleDelete(item)}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      >
-        <Text style={[styles.deleteBtn, { color: colors.textTertiary }]}>✕</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const canAdd = newTitle.trim().length > 0 && (scheduleMode === 'recurring' || dueDate.trim().length > 0);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -177,9 +141,7 @@ const TemplateEditScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backBtn, { color: colors.accent }]}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: colors.text }]}>
-          {getDayLabel(day)}
-        </Text>
+        <Text style={[styles.navTitle, { color: colors.text }]}>New To Do</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -187,149 +149,162 @@ const TemplateEditScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        {activeItems.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              {scheduleMode === 'one-time'
-                ? 'No one-time items yet. Add an item with a due date below.'
-                : 'No items yet. Add your first checklist item below.'}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={activeItems}
-            keyExtractor={(i) => i.id}
-            renderItem={renderItem}
-            contentContainerStyle={{
-              paddingHorizontal: spacing.md,
-              paddingTop: spacing.md,
-              paddingBottom: spacing.lg,
-            }}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-
-        {/* Add new item */}
-        <View
-          style={[
-            styles.addBar,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.separator,
-              paddingHorizontal: spacing.md,
-              paddingTop: spacing.sm,
-              paddingBottom: spacing.sm,
-            },
-          ]}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: spacing.md,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xxl,
+          }}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Schedule mode toggle: Recurring / One-time */}
-          <View style={[styles.modeToggleRow, { marginBottom: 6 }]}>
-            <TouchableOpacity
-              onPress={() => setScheduleMode('recurring')}
+          {/* ── Add form (main focus) ── */}
+          <View
+            style={[
+              styles.formCard,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                padding: spacing.md,
+                marginBottom: spacing.lg,
+              },
+            ]}
+          >
+            {/* Large title input */}
+            <TextInput
+              ref={inputRef}
+              value={newTitle}
+              onChangeText={setNewTitle}
+              placeholder="What do you need to do?"
+              placeholderTextColor={colors.textTertiary}
               style={[
-                styles.modeBtn,
+                styles.titleInputLarge,
                 {
-                  backgroundColor: scheduleMode === 'recurring' ? colors.accent : colors.surfaceElevated,
-                  borderColor: scheduleMode === 'recurring' ? colors.accent : colors.border,
-                  borderRadius: radius.sm,
+                  color: colors.text,
+                  borderBottomColor: colors.separator,
                 },
               ]}
-            >
-              <Text style={[styles.modeBtnText, { color: scheduleMode === 'recurring' ? '#fff' : colors.textSecondary }]}>
-                Recurring
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setScheduleMode('one-time')}
-              style={[
-                styles.modeBtn,
-                {
-                  backgroundColor: scheduleMode === 'one-time' ? colors.accent : colors.surfaceElevated,
-                  borderColor: scheduleMode === 'one-time' ? colors.accent : colors.border,
-                  borderRadius: radius.sm,
-                },
-              ]}
-            >
-              <Text style={[styles.modeBtnText, { color: scheduleMode === 'one-time' ? '#fff' : colors.textSecondary }]}>
-                One-time
-              </Text>
-            </TouchableOpacity>
-          </View>
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
+              autoFocus
+            />
 
-          {/* Day selector (recurring) or due date input (one-time) */}
-          {scheduleMode === 'recurring' ? (
-            <View style={styles.dayRow}>
-              <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
-                Add to:
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
-                {/* Everyday chip */}
-                <TouchableOpacity
-                  onPress={toggleAll}
+            {/* Mode toggle: One-time (default) / Recurring */}
+            <View style={[styles.modeToggleRow, { marginTop: spacing.md, marginBottom: spacing.sm }]}>
+              <TouchableOpacity
+                onPress={() => setScheduleMode('one-time')}
+                style={[
+                  styles.modeBtn,
+                  {
+                    flex: 1,
+                    backgroundColor: scheduleMode === 'one-time' ? colors.accent : colors.surfaceElevated,
+                    borderColor: scheduleMode === 'one-time' ? colors.accent : colors.border,
+                    borderRadius: radius.sm,
+                  },
+                ]}
+              >
+                <Text style={[styles.modeBtnText, { color: scheduleMode === 'one-time' ? '#fff' : colors.textSecondary }]}>
+                  One-time
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setScheduleMode('recurring')}
+                style={[
+                  styles.modeBtn,
+                  {
+                    flex: 1,
+                    backgroundColor: scheduleMode === 'recurring' ? colors.accent : colors.surfaceElevated,
+                    borderColor: scheduleMode === 'recurring' ? colors.accent : colors.border,
+                    borderRadius: radius.sm,
+                  },
+                ]}
+              >
+                <Text style={[styles.modeBtnText, { color: scheduleMode === 'recurring' ? '#fff' : colors.textSecondary }]}>
+                  Recurring
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Date (one-time) or Day chips (recurring) */}
+            {scheduleMode === 'one-time' ? (
+              <View style={[styles.fieldRow, { marginBottom: spacing.sm }]}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Date</Text>
+                <TextInput
+                  value={dueDate}
+                  onChangeText={setDueDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textTertiary}
                   style={[
-                    styles.dayChip,
+                    styles.fieldInput,
                     {
-                      backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
-                      borderColor: allSelected ? colors.accent : colors.border,
+                      backgroundColor: colors.surfaceElevated,
+                      color: colors.text,
                       borderRadius: radius.sm,
+                      borderColor: colors.border,
                     },
                   ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayChipText,
-                      { color: allSelected ? '#fff' : colors.textSecondary },
-                    ]}
-                  >
-                    Everyday
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Individual day chips */}
-                {DAY_CHIPS.map(({ label, day: d }) => {
-                  const active = selectedDays.includes(d) && !allSelected;
-                  return (
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
+                />
+              </View>
+            ) : (
+              <View style={[styles.fieldRow, { marginBottom: spacing.sm, alignItems: 'flex-start' }]}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, paddingTop: 7 }]}>Repeat</Text>
+                <View style={{ flex: 1 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
                     <TouchableOpacity
-                      key={d}
-                      onPress={() => !allSelected && toggleDay(d)}
+                      onPress={toggleAll}
                       style={[
                         styles.dayChip,
-                        styles.dayChipSm,
                         {
-                          backgroundColor: active
-                            ? colors.accentLight
-                            : colors.surfaceElevated,
-                          borderColor: active ? colors.accent : colors.border,
+                          backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
+                          borderColor: allSelected ? colors.accent : colors.border,
                           borderRadius: radius.sm,
-                          opacity: allSelected ? 0.4 : 1,
                         },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.dayChipText,
-                          { color: active ? colors.accent : colors.textSecondary },
-                        ]}
-                      >
-                        {label}
+                      <Text style={[styles.dayChipText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
+                        Every day
                       </Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          ) : (
-            <View style={styles.dayRow}>
-              <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
-                Due date:
-              </Text>
+                    {DAY_CHIPS.map(({ label, day: d }) => {
+                      const active = selectedDays.includes(d) && !allSelected;
+                      return (
+                        <TouchableOpacity
+                          key={d}
+                          onPress={() => !allSelected && toggleDay(d)}
+                          style={[
+                            styles.dayChip,
+                            {
+                              backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
+                              borderColor: active ? colors.accent : colors.border,
+                              borderRadius: radius.sm,
+                              opacity: allSelected ? 0.4 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.dayChipText, { color: active ? colors.accent : colors.textSecondary }]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            )}
+
+            {/* Optional time + Add button */}
+            <View style={styles.addRow}>
               <TextInput
-                value={dueDate}
-                onChangeText={setDueDate}
-                placeholder="YYYY-MM-DD"
+                value={newTime}
+                onChangeText={setNewTime}
+                placeholder="Time (optional)"
                 placeholderTextColor={colors.textTertiary}
                 style={[
-                  styles.dueDateInput,
+                  styles.timeInput,
                   {
                     backgroundColor: colors.surfaceElevated,
                     color: colors.text,
@@ -338,67 +313,83 @@ const TemplateEditScreen: React.FC = () => {
                   },
                 ]}
                 keyboardType="numbers-and-punctuation"
-                maxLength={10}
+                maxLength={5}
               />
+              <TouchableOpacity
+                onPress={handleAdd}
+                disabled={!canAdd}
+                style={[
+                  styles.addButton,
+                  {
+                    backgroundColor: canAdd ? colors.accent : colors.border,
+                    borderRadius: radius.sm,
+                  },
+                ]}
+              >
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Saved items list ── */}
+          {activeItems.length > 0 && (
+            <View>
+              <Text
+                style={[
+                  styles.savedLabel,
+                  { color: colors.textTertiary, marginBottom: spacing.sm },
+                ]}
+              >
+                {scheduleMode === 'one-time' ? 'ONE-TIME ITEMS' : 'RECURRING ITEMS'}
+              </Text>
+              {activeItems.map((item) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.itemRow,
+                    {
+                      backgroundColor: colors.surface,
+                      borderRadius: radius.md,
+                      marginBottom: spacing.xs,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.sm + 4,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.itemContent}>
+                    <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title}</Text>
+                    {item.dueDate && (
+                      <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
+                        📅 {item.dueDate}
+                      </Text>
+                    )}
+                    {item.time && (
+                      <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
+                        ⏰ {item.time}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Text style={[styles.deleteBtn, { color: colors.textTertiary }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
-          {/* Title + time + add button */}
-          <View style={styles.addRow}>
-            <TextInput
-              ref={inputRef}
-              value={newTitle}
-              onChangeText={setNewTitle}
-              placeholder="New checklist item…"
-              placeholderTextColor={colors.textTertiary}
-              style={[
-                styles.titleInput,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.text,
-                  borderRadius: radius.sm,
-                },
-              ]}
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-            />
-            <TextInput
-              value={newTime}
-              onChangeText={setNewTime}
-              placeholder="HH:MM"
-              placeholderTextColor={colors.textTertiary}
-              style={[
-                styles.timeInput,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.text,
-                  borderRadius: radius.sm,
-                },
-              ]}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
-            <TouchableOpacity
-              onPress={handleAdd}
-              disabled={!newTitle.trim() || (scheduleMode === 'one-time' && !dueDate.trim())}
-              style={[
-                styles.addButton,
-                {
-                  backgroundColor:
-                    newTitle.trim() && (scheduleMode === 'recurring' || dueDate.trim())
-                      ? colors.accent
-                      : colors.border,
-                  borderRadius: radius.sm,
-                },
-              ]}
-            >
-              <Text style={styles.addButtonText}>+</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.timeHint, { color: colors.textTertiary }]}>
-            Time is optional – used for per-item reminders
-          </Text>
-        </View>
+          {activeItems.length === 0 && (
+            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+              {scheduleMode === 'one-time'
+                ? 'No one-time items yet.'
+                : 'No recurring items yet.'}
+            </Text>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -415,16 +406,93 @@ const styles = StyleSheet.create({
   },
   backBtn: { fontSize: 17, fontWeight: '400' },
   navTitle: { fontSize: 17, fontWeight: '600' },
-  emptyWrap: {
+  formCard: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  titleInputLarge: {
+    fontSize: 20,
+    fontWeight: '500',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 4,
+  },
+  modeToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modeBtn: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  modeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    width: 44,
+  },
+  fieldInput: {
     flex: 1,
+    height: 36,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    borderWidth: 1,
+  },
+  dayChips: {
+    flexDirection: 'row',
+    gap: 5,
+    alignItems: 'center',
+  },
+  dayChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  dayChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  timeInput: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    borderWidth: 1,
+  },
+  addButton: {
+    paddingHorizontal: 20,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
   },
-  emptyText: {
+  addButtonText: {
+    color: '#fff',
     fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
+    fontWeight: '600',
+  },
+  savedLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginLeft: 4,
   },
   itemRow: {
     flexDirection: 'row',
@@ -437,88 +505,12 @@ const styles = StyleSheet.create({
   },
   itemContent: { flex: 1 },
   itemTitle: { fontSize: 15 },
-  itemTime: { fontSize: 12, marginTop: 2 },
+  itemMeta: { fontSize: 12, marginTop: 2 },
   deleteBtn: { fontSize: 16, paddingLeft: 12 },
-  addBar: { borderTopWidth: StyleSheet.hairlineWidth },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  dayRowLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    flexShrink: 0,
-  },
-  dayChips: {
-    flexDirection: 'row',
-    gap: 5,
-    alignItems: 'center',
-  },
-  dayChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-  },
-  dayChipSm: {
-    paddingHorizontal: 8,
-  },
-  dayChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  addRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  titleInput: {
-    flex: 1,
-    height: 40,
-    paddingHorizontal: 12,
-    fontSize: 15,
-  },
-  timeInput: {
-    width: 64,
-    height: 40,
-    paddingHorizontal: 10,
+  emptyText: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '400',
-    lineHeight: 26,
-  },
-  timeHint: { fontSize: 11, marginTop: 2 },
-  modeToggleRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  modeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-  },
-  modeBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dueDateInput: {
-    flex: 1,
-    height: 32,
-    paddingHorizontal: 10,
-    fontSize: 14,
-    borderWidth: 1,
+    marginTop: 8,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,14 +14,33 @@ import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import { requestPermissions, scheduleDailyReminder } from '../services/notifications';
 
-const REMINDER_TIMES = [
-  '06:00', '07:00', '08:00', '09:00', '10:00',
-];
+type ClockFormat = '12' | '24';
+type Period = 'AM' | 'PM';
 
 const SettingsScreen: React.FC = () => {
   const { colors, spacing, radius, isDark } = useTheme();
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
+
+  // Derive initial period from stored time
+  const storedHour = parseInt(settings.dailyReminderTime.split(':')[0], 10);
+  const [clockFormat, setClockFormat] = useState<ClockFormat>('12');
+  const [period, setPeriod] = useState<Period>(storedHour < 12 ? 'AM' : 'PM');
+
+  // Convert stored 24h hour to display hour for current format
+  const getDisplayHour = (hour24: number): number => {
+    if (clockFormat === '24') return hour24;
+    if (hour24 === 0) return 12;
+    if (hour24 > 12) return hour24 - 12;
+    return hour24;
+  };
+
+  const selectedDisplayHour = getDisplayHour(storedHour);
+
+  // Hours to show in the picker
+  const hours12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const hours24 = Array.from({ length: 24 }, (_, i) => i);
+  const hoursToShow = clockFormat === '12' ? hours12 : hours24;
 
   const handleTheme = (t: 'light' | 'dark' | 'system') => {
     updateSettings({ theme: t });
@@ -42,11 +61,52 @@ const SettingsScreen: React.FC = () => {
     await scheduleDailyReminder(settings.dailyReminderTime, value);
   };
 
-  const handleTimeSelect = async (time: string) => {
-    updateSettings({ dailyReminderTime: time });
-    if (settings.notificationsEnabled) {
-      await scheduleDailyReminder(time, true);
+  const handleHourSelect = async (displayHour: number) => {
+    let hour24: number;
+    if (clockFormat === '24') {
+      hour24 = displayHour;
+    } else {
+      if (period === 'AM') {
+        hour24 = displayHour === 12 ? 0 : displayHour;
+      } else {
+        hour24 = displayHour === 12 ? 12 : displayHour + 12;
+      }
     }
+    const timeStr = `${hour24.toString().padStart(2, '0')}:00`;
+    updateSettings({ dailyReminderTime: timeStr });
+    if (settings.notificationsEnabled) {
+      await scheduleDailyReminder(timeStr, true);
+    }
+  };
+
+  const handlePeriodChange = async (newPeriod: Period) => {
+    setPeriod(newPeriod);
+    // Recalculate current hour with new period
+    let hour24: number;
+    if (newPeriod === 'AM') {
+      hour24 = selectedDisplayHour === 12 ? 0 : selectedDisplayHour;
+    } else {
+      hour24 = selectedDisplayHour === 12 ? 12 : selectedDisplayHour + 12;
+    }
+    const timeStr = `${hour24.toString().padStart(2, '0')}:00`;
+    updateSettings({ dailyReminderTime: timeStr });
+    if (settings.notificationsEnabled) {
+      await scheduleDailyReminder(timeStr, true);
+    }
+  };
+
+  const isHourSelected = (displayHour: number): boolean => {
+    return selectedDisplayHour === displayHour;
+  };
+
+  const formatSelectedTime = (): string => {
+    const h = storedHour;
+    if (clockFormat === '24') {
+      return `${h.toString().padStart(2, '0')}:00`;
+    }
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const p = h < 12 ? 'AM' : 'PM';
+    return `${displayH}:00 ${p}`;
   };
 
   return (
@@ -127,20 +187,19 @@ const SettingsScreen: React.FC = () => {
             },
           ]}
         >
+          {/* Daily reminder toggle */}
           <View
             style={[
               styles.row,
               {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm + 4,
-                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomWidth: settings.notificationsEnabled ? StyleSheet.hairlineWidth : 0,
                 borderBottomColor: colors.separator,
               },
             ]}
           >
-            <Text style={[styles.rowLabel, { color: colors.text }]}>
-              Daily reminder
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>Daily reminder</Text>
             <Switch
               value={settings.notificationsEnabled}
               onValueChange={handleNotifToggle}
@@ -151,59 +210,118 @@ const SettingsScreen: React.FC = () => {
 
           {settings.notificationsEnabled && (
             <View
-              style={[
-                styles.row,
-                {
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm + 4,
-                  flexWrap: 'wrap',
-                  gap: 8,
-                },
-              ]}
+              style={{
+                paddingHorizontal: spacing.md,
+                paddingTop: spacing.sm + 4,
+                paddingBottom: spacing.md,
+              }}
             >
-              <Text
-                style={[
-                  styles.rowLabel,
-                  { color: colors.text, width: '100%', marginBottom: 4 },
-                ]}
-              >
-                Reminder time
-              </Text>
-              {REMINDER_TIMES.map((t) => (
+              {/* Label + current time */}
+              <View style={[styles.row, { marginBottom: spacing.sm }]}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder time</Text>
+                <Text style={[styles.selectedTimeText, { color: colors.accent }]}>
+                  {formatSelectedTime()}
+                </Text>
+              </View>
+
+              {/* 12hr / 24hr format toggle */}
+              <View style={[styles.formatToggleRow, { marginBottom: spacing.sm }]}>
                 <TouchableOpacity
-                  key={t}
-                  onPress={() => handleTimeSelect(t)}
+                  onPress={() => setClockFormat('12')}
                   style={[
-                    styles.timeChip,
+                    styles.formatBtn,
                     {
-                      backgroundColor:
-                        settings.dailyReminderTime === t
-                          ? colors.accent
-                          : colors.surfaceElevated,
+                      backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
+                      borderColor: clockFormat === '12' ? colors.accent : colors.border,
                       borderRadius: radius.sm,
-                      borderWidth: 1,
-                      borderColor:
-                        settings.dailyReminderTime === t
-                          ? colors.accent
-                          : colors.border,
                     },
                   ]}
                 >
-                  <Text
+                  <Text style={[styles.formatBtnText, { color: clockFormat === '12' ? '#fff' : colors.textSecondary }]}>
+                    12hr
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setClockFormat('24')}
+                  style={[
+                    styles.formatBtn,
+                    {
+                      backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
+                      borderColor: clockFormat === '24' ? colors.accent : colors.border,
+                      borderRadius: radius.sm,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.formatBtnText, { color: clockFormat === '24' ? '#fff' : colors.textSecondary }]}>
+                    24hr
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* AM / PM selector (12hr only) */}
+              {clockFormat === '12' && (
+                <View style={[styles.formatToggleRow, { marginBottom: spacing.sm }]}>
+                  <TouchableOpacity
+                    onPress={() => handlePeriodChange('AM')}
                     style={[
-                      styles.timeChipText,
+                      styles.periodBtn,
                       {
-                        color:
-                          settings.dailyReminderTime === t
-                            ? '#fff'
-                            : colors.textSecondary,
+                        backgroundColor: period === 'AM' ? colors.accentLight : colors.surfaceElevated,
+                        borderColor: period === 'AM' ? colors.accent : colors.border,
+                        borderRadius: radius.sm,
                       },
                     ]}
                   >
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text style={[styles.periodBtnText, { color: period === 'AM' ? colors.accent : colors.textSecondary }]}>
+                      AM
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handlePeriodChange('PM')}
+                    style={[
+                      styles.periodBtn,
+                      {
+                        backgroundColor: period === 'PM' ? colors.accentLight : colors.surfaceElevated,
+                        borderColor: period === 'PM' ? colors.accent : colors.border,
+                        borderRadius: radius.sm,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.periodBtnText, { color: period === 'PM' ? colors.accent : colors.textSecondary }]}>
+                      PM
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Hour chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hourChips}
+              >
+                {hoursToShow.map((h) => {
+                  const selected = isHourSelected(h);
+                  return (
+                    <TouchableOpacity
+                      key={h}
+                      onPress={() => handleHourSelect(h)}
+                      style={[
+                        styles.hourChip,
+                        {
+                          backgroundColor: selected ? colors.accent : colors.surfaceElevated,
+                          borderColor: selected ? colors.accent : colors.border,
+                          borderRadius: radius.sm,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.hourChipText, { color: selected ? '#fff' : colors.textSecondary }]}>
+                        {clockFormat === '24' ? h.toString().padStart(2, '0') : h}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -230,12 +348,8 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>
-              DailyDo
-            </Text>
-            <Text style={[styles.rowValue, { color: colors.textTertiary }]}>
-              v1.0.0
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>DailyDo</Text>
+            <Text style={[styles.rowValue, { color: colors.textTertiary }]}>Alpha 1</Text>
           </View>
         </View>
       </ScrollView>
@@ -284,11 +398,49 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 16 },
   rowValue: { fontSize: 15 },
-  timeChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  selectedTimeText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
-  timeChipText: { fontSize: 14, fontWeight: '500' },
+  formatToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  formatBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderWidth: 1,
+  },
+  formatBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  periodBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  periodBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  hourChips: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 2,
+  },
+  hourChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  hourChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
 
 export default SettingsScreen;
