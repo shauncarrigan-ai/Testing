@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,101 @@ import { requestPermissions, scheduleDailyReminder } from '../services/notificat
 
 type Period = 'AM' | 'PM';
 
+// ── Hour Carousel constants ──────────────────────────────────────────────────
+const ITEM_H = 44;
+const VISIBLE_ITEMS = 5;
+const CAROUSEL_H = ITEM_H * VISIBLE_ITEMS; // 220
+const CAROUSEL_PAD = CAROUSEL_H / 2 - ITEM_H / 2; // 88 — centers item at scrollY = idx * ITEM_H
+
+interface HourCarouselProps {
+  hours: number[];
+  selectedHour: number;
+  onSelect: (h: number) => void;
+  clockFormat: '12' | '24';
+  colors: ReturnType<typeof useTheme>['colors'];
+  radius: ReturnType<typeof useTheme>['radius'];
+}
+
+const HourCarousel: React.FC<HourCarouselProps> = ({
+  hours,
+  selectedHour,
+  onSelect,
+  clockFormat,
+  colors,
+  radius,
+}) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const selectedIdx = hours.indexOf(selectedHour);
+
+  // Scroll to selected hour on mount / format change
+  useEffect(() => {
+    if (selectedIdx >= 0) {
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: selectedIdx * ITEM_H, animated: false });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedIdx]);
+
+  const handleScrollEnd = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const idx = Math.max(0, Math.min(Math.round(y / ITEM_H), hours.length - 1));
+    onSelect(hours[idx]);
+  };
+
+  return (
+    <View style={{ height: CAROUSEL_H, overflow: 'hidden' }}>
+      {/* Center highlight stripe */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.carouselHighlight,
+          {
+            top: CAROUSEL_PAD,
+            backgroundColor: colors.accentLight,
+            borderColor: colors.accent,
+            borderRadius: radius.sm,
+          },
+        ]}
+      />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        onMomentumScrollEnd={handleScrollEnd}
+        contentContainerStyle={{ paddingVertical: CAROUSEL_PAD }}
+      >
+        {hours.map((h, idx) => {
+          const isSelected = h === selectedHour;
+          return (
+            <TouchableOpacity
+              key={h}
+              onPress={() => {
+                onSelect(h);
+                scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
+              }}
+              style={styles.carouselItem}
+            >
+              <Text
+                style={{
+                  fontSize: isSelected ? 22 : 15,
+                  fontWeight: isSelected ? '700' : '400',
+                  color: isSelected ? colors.accent : colors.textSecondary,
+                  opacity: isSelected ? 1 : 0.55,
+                }}
+              >
+                {clockFormat === '24' ? h.toString().padStart(2, '0') : h}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
+
+// ── Main component ───────────────────────────────────────────────────────────
 const SettingsScreen: React.FC = () => {
   const { colors, spacing, radius, isDark } = useTheme();
   const settings = useStore((s) => s.settings);
@@ -23,11 +118,9 @@ const SettingsScreen: React.FC = () => {
 
   const clockFormat = settings.clockFormat ?? '12';
 
-  // Derive initial AM/PM from stored time
   const storedHour = parseInt(settings.dailyReminderTime.split(':')[0], 10);
   const [period, setPeriod] = useState<Period>(storedHour < 12 ? 'AM' : 'PM');
 
-  // Convert stored 24h hour to display hour
   const getDisplayHour = (hour24: number): number => {
     if (clockFormat === '24') return hour24;
     if (hour24 === 0) return 12;
@@ -148,8 +241,7 @@ const SettingsScreen: React.FC = () => {
             },
           ]}
         >
-          {/* Theme rows */}
-          {(['system', 'light', 'dark'] as const).map((t, idx) => (
+          {(['system', 'light', 'dark'] as const).map((t) => (
             <TouchableOpacity
               key={t}
               onPress={() => handleTheme(t)}
@@ -171,51 +263,6 @@ const SettingsScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           ))}
-
-          {/* Clock format row */}
-          <View
-            style={[
-              styles.row,
-              {
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm + 4,
-              },
-            ]}
-          >
-            <Text style={[styles.rowLabel, { color: colors.text }]}>Clock format</Text>
-            <View style={styles.segmentRow}>
-              <TouchableOpacity
-                onPress={() => handleClockFormat('12')}
-                style={[
-                  styles.segmentBtn,
-                  styles.segmentBtnLeft,
-                  {
-                    backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
-                    borderColor: colors.accent,
-                  },
-                ]}
-              >
-                <Text style={[styles.segmentBtnText, { color: clockFormat === '12' ? '#fff' : colors.accent }]}>
-                  12hr
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleClockFormat('24')}
-                style={[
-                  styles.segmentBtn,
-                  styles.segmentBtnRight,
-                  {
-                    backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
-                    borderColor: colors.accent,
-                  },
-                ]}
-              >
-                <Text style={[styles.segmentBtnText, { color: clockFormat === '24' ? '#fff' : colors.accent }]}>
-                  24hr
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
 
         {/* ── Notifications ── */}
@@ -238,7 +285,7 @@ const SettingsScreen: React.FC = () => {
               {
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm + 4,
-                borderBottomWidth: settings.notificationsEnabled ? StyleSheet.hairlineWidth : 0,
+                borderBottomWidth: StyleSheet.hairlineWidth,
                 borderBottomColor: colors.separator,
               },
             ]}
@@ -252,12 +299,15 @@ const SettingsScreen: React.FC = () => {
             />
           </View>
 
+          {/* Reminder time + AM/PM + hour carousel — visible when enabled */}
           {settings.notificationsEnabled && (
             <View
               style={{
                 paddingHorizontal: spacing.md,
                 paddingTop: spacing.sm + 4,
                 paddingBottom: spacing.md,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.separator,
               }}
             >
               {/* Label + current time */}
@@ -304,36 +354,62 @@ const SettingsScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* Hour chips */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.hourChips}
-              >
-                {hoursToShow.map((h) => {
-                  const selected = selectedDisplayHour === h;
-                  return (
-                    <TouchableOpacity
-                      key={h}
-                      onPress={() => handleHourSelect(h)}
-                      style={[
-                        styles.hourChip,
-                        {
-                          backgroundColor: selected ? colors.accent : colors.surfaceElevated,
-                          borderColor: selected ? colors.accent : colors.border,
-                          borderRadius: radius.sm,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.hourChipText, { color: selected ? '#fff' : colors.textSecondary }]}>
-                        {clockFormat === '24' ? h.toString().padStart(2, '0') : h}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              {/* Hour carousel */}
+              <HourCarousel
+                hours={hoursToShow}
+                selectedHour={selectedDisplayHour}
+                onSelect={handleHourSelect}
+                clockFormat={clockFormat}
+                colors={colors}
+                radius={radius}
+              />
             </View>
           )}
+
+          {/* Clock format — always visible at the bottom of Notifications */}
+          <View
+            style={[
+              styles.row,
+              {
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm + 4,
+              },
+            ]}
+          >
+            <Text style={[styles.rowLabel, { color: colors.text }]}>Clock format</Text>
+            <View style={styles.segmentRow}>
+              <TouchableOpacity
+                onPress={() => handleClockFormat('12')}
+                style={[
+                  styles.segmentBtn,
+                  styles.segmentBtnLeft,
+                  {
+                    backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
+                    borderColor: colors.accent,
+                  },
+                ]}
+              >
+                <Text style={[styles.segmentBtnText, { color: clockFormat === '12' ? '#fff' : colors.accent }]}>
+                  12hr
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleClockFormat('24')}
+                style={[
+                  styles.segmentBtn,
+                  styles.segmentBtnRight,
+                  {
+                    backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
+                    borderColor: colors.accent,
+                  },
+                ]}
+              >
+                <Text style={[styles.segmentBtnText, { color: clockFormat === '24' ? '#fff' : colors.accent }]}>
+                  24hr
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* ── About ── */}
@@ -452,21 +528,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  hourChips: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingBottom: 2,
+  // Carousel styles
+  carouselHighlight: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: ITEM_H,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
-  hourChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    minWidth: 44,
+  carouselItem: {
+    height: ITEM_H,
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  hourChipText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
 

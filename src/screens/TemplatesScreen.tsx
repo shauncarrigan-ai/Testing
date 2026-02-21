@@ -11,13 +11,23 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
-import { WEEK_DAYS, getDayOfWeek, getTodayString } from '../utils/dateUtils';
+import {
+  WEEK_DAYS,
+  getDayOfWeek,
+  getTodayString,
+  addDays,
+  formatDate,
+  parseDate,
+  formatLongDate,
+} from '../utils/dateUtils';
 import { DayOfWeek, TemplateItem } from '../types';
 
 type ScheduleMode = 'recurring' | 'one-time';
+type DateMode = 'today' | 'tomorrow' | 'date';
 
 const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
   { label: 'Mo', day: 'monday' },
@@ -29,12 +39,24 @@ const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
   { label: 'Su', day: 'sunday' },
 ];
 
-const getTodayDate = () => {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, '0');
-  const d = String(today.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const toDateStr = (year: number, month: number, day: number): string =>
+  `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+const buildCalendarRows = (year: number, month: number): (number | null)[][] => {
+  const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const rows: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+  return rows;
 };
 
 const TemplatesScreen: React.FC = () => {
@@ -54,7 +76,17 @@ const TemplatesScreen: React.FC = () => {
   const [newTime, setNewTime] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([todayDow]);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one-time');
-  const [dueDate, setDueDate] = useState(getTodayDate());
+
+  // Date selection state
+  const [dateMode, setDateMode] = useState<DateMode>('today');
+  const [dueDate, setDueDate] = useState(getTodayString());
+
+  // Calendar modal state
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarTempDate, setCalendarTempDate] = useState(getTodayString());
+
   const inputRef = useRef<TextInput>(null);
 
   const activeItems = scheduleMode === 'recurring' ? recurringItems : oneTimeItems;
@@ -74,6 +106,55 @@ const TemplatesScreen: React.FC = () => {
     setSelectedDays(allSelected ? [todayDow] : WEEK_DAYS);
   };
 
+  const handleDateMode = (mode: DateMode) => {
+    if (mode === 'today') {
+      setDueDate(getTodayString());
+      setDateMode('today');
+    } else if (mode === 'tomorrow') {
+      setDueDate(addDays(getTodayString(), 1));
+      setDateMode('tomorrow');
+    } else {
+      // Open calendar seeded from current dueDate
+      const d = parseDate(dueDate);
+      setCalendarYear(d.getFullYear());
+      setCalendarMonth(d.getMonth());
+      setCalendarTempDate(dueDate);
+      setCalendarVisible(true);
+      setDateMode('date');
+    }
+  };
+
+  const handleCalendarSelect = () => {
+    setDueDate(calendarTempDate);
+    setCalendarVisible(false);
+  };
+
+  const handleCalendarCancel = () => {
+    setCalendarVisible(false);
+    // If they never confirmed a custom date, revert mode to today
+    if (dateMode === 'date' && dueDate !== calendarTempDate) {
+      // Keep whatever dueDate was before
+    }
+  };
+
+  const prevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear((y) => y - 1);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear((y) => y + 1);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
   const handleAdd = () => {
     const trimmed = newTitle.trim();
     if (!trimmed) return;
@@ -83,7 +164,8 @@ const TemplatesScreen: React.FC = () => {
       const dateVal = dueDate.trim();
       if (!dateVal) return;
       addOneTimeItem(trimmed, dateVal, timeVal);
-      setDueDate(getTodayDate());
+      setDueDate(getTodayString());
+      setDateMode('today');
     } else {
       selectedDays.forEach((d) => {
         addTemplateItem(d, trimmed, timeVal);
@@ -115,6 +197,9 @@ const TemplatesScreen: React.FC = () => {
   const canAdd =
     newTitle.trim().length > 0 &&
     (scheduleMode === 'recurring' || dueDate.trim().length > 0);
+
+  const today = getTodayString();
+  const calendarRows = buildCalendarRows(calendarYear, calendarMonth);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -222,69 +307,84 @@ const TemplatesScreen: React.FC = () => {
 
             {/* Date (one-time) or Day chips (recurring) */}
             {scheduleMode === 'one-time' ? (
-              <View style={[styles.fieldRow, { marginBottom: spacing.sm }]}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Date</Text>
-                <TextInput
-                  value={dueDate}
-                  onChangeText={setDueDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textTertiary}
-                  style={[
-                    styles.fieldInput,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      color: colors.text,
-                      borderRadius: radius.sm,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  keyboardType="numbers-and-punctuation"
-                  maxLength={10}
-                />
-              </View>
-            ) : (
-              <View style={[styles.fieldRow, { marginBottom: spacing.sm, alignItems: 'flex-start' }]}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, paddingTop: 7 }]}>Repeat</Text>
-                <View style={{ flex: 1 }}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
-                    <TouchableOpacity
-                      onPress={toggleAll}
-                      style={[
-                        styles.dayChip,
-                        {
-                          backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
-                          borderColor: allSelected ? colors.accent : colors.border,
-                          borderRadius: radius.sm,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.dayChipText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
-                        Every day
-                      </Text>
-                    </TouchableOpacity>
-                    {DAY_CHIPS.map(({ label, day: d }) => {
-                      const active = selectedDays.includes(d) && !allSelected;
+              <View style={{ marginBottom: spacing.sm }}>
+                {/* Today / Tomorrow / Date… buttons */}
+                <View style={[styles.fieldRow, { marginBottom: 6 }]}>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Date</Text>
+                  <View style={styles.dateBtnRow}>
+                    {([ 'today', 'tomorrow', 'date' ] as DateMode[]).map((mode) => {
+                      const active = dateMode === mode;
+                      const label = mode === 'today' ? 'Today' : mode === 'tomorrow' ? 'Tomorrow' : 'Date…';
                       return (
                         <TouchableOpacity
-                          key={d}
-                          onPress={() => !allSelected && toggleDay(d)}
+                          key={mode}
+                          onPress={() => handleDateMode(mode)}
                           style={[
-                            styles.dayChip,
+                            styles.dateBtn,
                             {
-                              backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
+                              backgroundColor: active ? colors.accent : colors.surfaceElevated,
                               borderColor: active ? colors.accent : colors.border,
                               borderRadius: radius.sm,
-                              opacity: allSelected ? 0.4 : 1,
                             },
                           ]}
                         >
-                          <Text style={[styles.dayChipText, { color: active ? colors.accent : colors.textSecondary }]}>
+                          <Text style={[styles.dateBtnText, { color: active ? '#fff' : colors.textSecondary }]}>
                             {label}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
-                  </ScrollView>
+                  </View>
+                </View>
+                {/* Show selected date label when using custom date */}
+                {dateMode === 'date' && (
+                  <Text style={[styles.dateDisplayLabel, { color: colors.accent, marginLeft: 54 }]}>
+                    {formatLongDate(dueDate)}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              /* Recurring day chips — wrapped so all are visible */
+              <View style={[styles.fieldRow, { marginBottom: spacing.sm, alignItems: 'flex-start' }]}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, paddingTop: 7 }]}>Repeat</Text>
+                <View style={styles.dayChipsWrap}>
+                  <TouchableOpacity
+                    onPress={toggleAll}
+                    style={[
+                      styles.dayChip,
+                      {
+                        backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
+                        borderColor: allSelected ? colors.accent : colors.border,
+                        borderRadius: radius.sm,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.dayChipText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
+                      Every day
+                    </Text>
+                  </TouchableOpacity>
+                  {DAY_CHIPS.map(({ label, day: d }) => {
+                    const active = selectedDays.includes(d) && !allSelected;
+                    return (
+                      <TouchableOpacity
+                        key={d}
+                        onPress={() => !allSelected && toggleDay(d)}
+                        style={[
+                          styles.dayChip,
+                          {
+                            backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
+                            borderColor: active ? colors.accent : colors.border,
+                            borderRadius: radius.sm,
+                            opacity: allSelected ? 0.4 : 1,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.dayChipText, { color: active ? colors.accent : colors.textSecondary }]}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -384,6 +484,101 @@ const TemplatesScreen: React.FC = () => {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Calendar Modal ── */}
+      <Modal
+        visible={calendarVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCalendarCancel}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.calendarCard,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {/* Month navigation header */}
+            <View style={styles.calHeader}>
+              <TouchableOpacity onPress={prevMonth} style={styles.calNavBtn}>
+                <Text style={[styles.calNavText, { color: colors.accent }]}>‹</Text>
+              </TouchableOpacity>
+              <Text style={[styles.calMonthTitle, { color: colors.text }]}>
+                {MONTH_NAMES[calendarMonth]} {calendarYear}
+              </Text>
+              <TouchableOpacity onPress={nextMonth} style={styles.calNavBtn}>
+                <Text style={[styles.calNavText, { color: colors.accent }]}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Weekday labels */}
+            <View style={styles.calWeekRow}>
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                <Text key={d} style={[styles.calWeekLabel, { color: colors.textTertiary }]}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            {/* Day grid */}
+            {calendarRows.map((row, rowIdx) => (
+              <View key={rowIdx} style={styles.calRow}>
+                {row.map((day, colIdx) => {
+                  const dateStr = day ? toDateStr(calendarYear, calendarMonth, day) : null;
+                  const isSelected = dateStr === calendarTempDate;
+                  const isToday = dateStr === today;
+                  return (
+                    <TouchableOpacity
+                      key={colIdx}
+                      onPress={() => dateStr && setCalendarTempDate(dateStr)}
+                      disabled={!day}
+                      style={[
+                        styles.calDay,
+                        {
+                          backgroundColor: isSelected ? colors.accent : 'transparent',
+                          borderRadius: radius.sm,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: isSelected || isToday ? '700' : '400',
+                          color: isSelected
+                            ? '#fff'
+                            : isToday
+                            ? colors.accent
+                            : day
+                            ? colors.text
+                            : 'transparent',
+                        }}
+                      >
+                        {day ?? ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+
+            {/* Footer */}
+            <View style={styles.calFooter}>
+              <TouchableOpacity onPress={handleCalendarCancel} style={styles.calFooterBtn}>
+                <Text style={[styles.calCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleCalendarSelect} style={styles.calFooterBtn}>
+                <Text style={[styles.calSelectText, { color: colors.accent }]}>Select</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -436,17 +631,33 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     width: 44,
   },
-  fieldInput: {
+  // Date mode buttons
+  dateBtnRow: {
     flex: 1,
-    height: 36,
-    paddingHorizontal: 10,
-    fontSize: 14,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dateBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
     borderWidth: 1,
   },
-  dayChips: {
+  dateBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dateDisplayLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  // Day chips — wrapped layout so all are visible
+  dayChipsWrap: {
+    flex: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 5,
-    alignItems: 'center',
   },
   dayChip: {
     paddingHorizontal: 10,
@@ -504,6 +715,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
+  },
+  // Calendar modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  calendarCard: {
+    width: '100%',
+    maxWidth: 340,
+    padding: 16,
+  },
+  calHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  calNavBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  calNavText: {
+    fontSize: 26,
+    fontWeight: '300',
+  },
+  calMonthTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  calWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  calWeekLabel: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  calRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  calDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 24,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  calFooterBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  calCancelText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  calSelectText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 
