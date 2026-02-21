@@ -32,6 +32,7 @@ const emptyTemplate = (): WeeklyTemplate => ({
 
 const defaultSettings: AppSettings = {
   theme: 'system',
+  clockFormat: '12',
   notificationsEnabled: true,
   dailyReminderTime: '08:00',
 };

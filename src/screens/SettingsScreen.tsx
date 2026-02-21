@@ -14,7 +14,6 @@ import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import { requestPermissions, scheduleDailyReminder } from '../services/notifications';
 
-type ClockFormat = '12' | '24';
 type Period = 'AM' | 'PM';
 
 const SettingsScreen: React.FC = () => {
@@ -22,12 +21,13 @@ const SettingsScreen: React.FC = () => {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
 
-  // Derive initial period from stored time
+  const clockFormat = settings.clockFormat ?? '12';
+
+  // Derive initial AM/PM from stored time
   const storedHour = parseInt(settings.dailyReminderTime.split(':')[0], 10);
-  const [clockFormat, setClockFormat] = useState<ClockFormat>('12');
   const [period, setPeriod] = useState<Period>(storedHour < 12 ? 'AM' : 'PM');
 
-  // Convert stored 24h hour to display hour for current format
+  // Convert stored 24h hour to display hour
   const getDisplayHour = (hour24: number): number => {
     if (clockFormat === '24') return hour24;
     if (hour24 === 0) return 12;
@@ -37,13 +37,16 @@ const SettingsScreen: React.FC = () => {
 
   const selectedDisplayHour = getDisplayHour(storedHour);
 
-  // Hours to show in the picker
   const hours12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   const hours24 = Array.from({ length: 24 }, (_, i) => i);
   const hoursToShow = clockFormat === '12' ? hours12 : hours24;
 
   const handleTheme = (t: 'light' | 'dark' | 'system') => {
     updateSettings({ theme: t });
+  };
+
+  const handleClockFormat = (fmt: '12' | '24') => {
+    updateSettings({ clockFormat: fmt });
   };
 
   const handleNotifToggle = async (value: boolean) => {
@@ -81,7 +84,6 @@ const SettingsScreen: React.FC = () => {
 
   const handlePeriodChange = async (newPeriod: Period) => {
     setPeriod(newPeriod);
-    // Recalculate current hour with new period
     let hour24: number;
     if (newPeriod === 'AM') {
       hour24 = selectedDisplayHour === 12 ? 0 : selectedDisplayHour;
@@ -93,10 +95,6 @@ const SettingsScreen: React.FC = () => {
     if (settings.notificationsEnabled) {
       await scheduleDailyReminder(timeStr, true);
     }
-  };
-
-  const isHourSelected = (displayHour: number): boolean => {
-    return selectedDisplayHour === displayHour;
   };
 
   const formatSelectedTime = (): string => {
@@ -150,7 +148,8 @@ const SettingsScreen: React.FC = () => {
             },
           ]}
         >
-          {(['system', 'light', 'dark'] as const).map((t, idx, arr) => (
+          {/* Theme rows */}
+          {(['system', 'light', 'dark'] as const).map((t, idx) => (
             <TouchableOpacity
               key={t}
               onPress={() => handleTheme(t)}
@@ -159,7 +158,7 @@ const SettingsScreen: React.FC = () => {
                 {
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.md,
-                  borderBottomWidth: idx < arr.length - 1 ? StyleSheet.hairlineWidth : 0,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
                   borderBottomColor: colors.separator,
                 },
               ]}
@@ -172,6 +171,51 @@ const SettingsScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           ))}
+
+          {/* Clock format row */}
+          <View
+            style={[
+              styles.row,
+              {
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm + 4,
+              },
+            ]}
+          >
+            <Text style={[styles.rowLabel, { color: colors.text }]}>Clock format</Text>
+            <View style={styles.segmentRow}>
+              <TouchableOpacity
+                onPress={() => handleClockFormat('12')}
+                style={[
+                  styles.segmentBtn,
+                  styles.segmentBtnLeft,
+                  {
+                    backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
+                    borderColor: colors.accent,
+                  },
+                ]}
+              >
+                <Text style={[styles.segmentBtnText, { color: clockFormat === '12' ? '#fff' : colors.accent }]}>
+                  12hr
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleClockFormat('24')}
+                style={[
+                  styles.segmentBtn,
+                  styles.segmentBtnRight,
+                  {
+                    backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
+                    borderColor: colors.accent,
+                  },
+                ]}
+              >
+                <Text style={[styles.segmentBtnText, { color: clockFormat === '24' ? '#fff' : colors.accent }]}>
+                  24hr
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* ── Notifications ── */}
@@ -224,43 +268,9 @@ const SettingsScreen: React.FC = () => {
                 </Text>
               </View>
 
-              {/* 12hr / 24hr format toggle */}
-              <View style={[styles.formatToggleRow, { marginBottom: spacing.sm }]}>
-                <TouchableOpacity
-                  onPress={() => setClockFormat('12')}
-                  style={[
-                    styles.formatBtn,
-                    {
-                      backgroundColor: clockFormat === '12' ? colors.accent : colors.surfaceElevated,
-                      borderColor: clockFormat === '12' ? colors.accent : colors.border,
-                      borderRadius: radius.sm,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.formatBtnText, { color: clockFormat === '12' ? '#fff' : colors.textSecondary }]}>
-                    12hr
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setClockFormat('24')}
-                  style={[
-                    styles.formatBtn,
-                    {
-                      backgroundColor: clockFormat === '24' ? colors.accent : colors.surfaceElevated,
-                      borderColor: clockFormat === '24' ? colors.accent : colors.border,
-                      borderRadius: radius.sm,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.formatBtnText, { color: clockFormat === '24' ? '#fff' : colors.textSecondary }]}>
-                    24hr
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
               {/* AM / PM selector (12hr only) */}
               {clockFormat === '12' && (
-                <View style={[styles.formatToggleRow, { marginBottom: spacing.sm }]}>
+                <View style={[styles.segmentRowFull, { marginBottom: spacing.sm }]}>
                   <TouchableOpacity
                     onPress={() => handlePeriodChange('AM')}
                     style={[
@@ -301,7 +311,7 @@ const SettingsScreen: React.FC = () => {
                 contentContainerStyle={styles.hourChips}
               >
                 {hoursToShow.map((h) => {
-                  const selected = isHourSelected(h);
+                  const selected = selectedDisplayHour === h;
                   return (
                     <TouchableOpacity
                       key={h}
@@ -402,16 +412,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  formatToggleRow: {
+  segmentRow: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  segmentRowFull: {
     flexDirection: 'row',
     gap: 8,
   },
-  formatBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+  segmentBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderWidth: 1,
   },
-  formatBtnText: {
+  segmentBtnLeft: {
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
+    borderRightWidth: 0.5,
+  },
+  segmentBtnRight: {
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+    borderLeftWidth: 0.5,
+  },
+  segmentBtnText: {
     fontSize: 13,
     fontWeight: '600',
   },

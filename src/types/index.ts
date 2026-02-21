@@ -61,6 +61,7 @@ export interface DailyItem {
 
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
+  clockFormat: '12' | '24';
   notificationsEnabled: boolean;
   dailyReminderTime: string; // "HH:MM"
   userId?: string;
