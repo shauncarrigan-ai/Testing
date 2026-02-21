@@ -22,6 +22,7 @@ import { DayOfWeek, RootStackParamList, TemplateItem } from '../types';
 
 type Route = RouteProp<RootStackParamList, 'TemplateEdit'>;
 type Nav = StackNavigationProp<RootStackParamList>;
+type ScheduleMode = 'recurring' | 'one-time';
 
 // Short labels for the day chips
 const DAY_CHIPS: { label: string; day: DayOfWeek }[] = [
@@ -41,19 +42,22 @@ const TemplateEditScreen: React.FC = () => {
   const { colors, spacing, radius, isDark } = useTheme();
 
   const weeklyTemplate = useStore((s) => s.weeklyTemplate);
+  const oneTimeItems = useStore((s) => s.oneTimeItems);
   const addTemplateItem = useStore((s) => s.addTemplateItem);
   const deleteTemplateItem = useStore((s) => s.deleteTemplateItem);
   const addOneTimeItem = useStore((s) => s.addOneTimeItem);
+  const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
 
-  const items = weeklyTemplate[day];
+  const recurringItems = weeklyTemplate[day];
 
-  type ScheduleMode = 'recurring' | 'one-time';
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([day]);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('recurring');
   const [dueDate, setDueDate] = useState('');
   const inputRef = useRef<TextInput>(null);
+
+  const activeItems = scheduleMode === 'recurring' ? recurringItems : oneTimeItems;
 
   const allSelected = selectedDays.length === 7;
 
@@ -102,7 +106,13 @@ const TemplateEditScreen: React.FC = () => {
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => deleteTemplateItem(day, item.id),
+        onPress: () => {
+          if (scheduleMode === 'one-time') {
+            deleteOneTimeItem(item.id);
+          } else {
+            deleteTemplateItem(day, item.id);
+          }
+        },
       },
     ]);
   };
@@ -126,6 +136,11 @@ const TemplateEditScreen: React.FC = () => {
         <Text style={[styles.itemTitle, { color: colors.text }]}>
           {item.title}
         </Text>
+        {item.dueDate && (
+          <Text style={[styles.itemTime, { color: colors.textTertiary }]}>
+            📅 {item.dueDate}
+          </Text>
+        )}
         {item.time && (
           <Text style={[styles.itemTime, { color: colors.textTertiary }]}>
             ⏰ {item.time}
@@ -172,15 +187,17 @@ const TemplateEditScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        {items.length === 0 ? (
+        {activeItems.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              No items yet. Add your first checklist item below.
+              {scheduleMode === 'one-time'
+                ? 'No one-time items yet. Add an item with a due date below.'
+                : 'No items yet. Add your first checklist item below.'}
             </Text>
           </View>
         ) : (
           <FlatList
-            data={items}
+            data={activeItems}
             keyExtractor={(i) => i.id}
             renderItem={renderItem}
             contentContainerStyle={{
