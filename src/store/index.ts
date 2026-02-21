@@ -40,6 +40,7 @@ const defaultSettings: AppSettings = {
 
 interface AppState {
   weeklyTemplate: WeeklyTemplate;
+  oneTimeItems: TemplateItem[];
   projects: Project[];
   tasks: Task[];
   dailyItems: Record<string, DailyItem[]>;
@@ -51,6 +52,8 @@ interface AppState {
   updateTemplateItem: (day: DayOfWeek, id: string, updates: Partial<TemplateItem>) => void;
   deleteTemplateItem: (day: DayOfWeek, id: string) => void;
   reorderTemplateItems: (day: DayOfWeek, items: TemplateItem[]) => void;
+  addOneTimeItem: (title: string, dueDate: string, time?: string) => void;
+  deleteOneTimeItem: (id: string) => void;
 
   // ── Project actions ──
   addProject: (title: string, color: string) => Project;
@@ -81,6 +84,7 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       weeklyTemplate: emptyTemplate(),
+      oneTimeItems: [],
       projects: [],
       tasks: [],
       dailyItems: {},
@@ -135,6 +139,25 @@ export const useStore = create<AppState>()(
             ...s.weeklyTemplate,
             [day]: items.map((item, i) => ({ ...item, order: i })),
           },
+        }));
+      },
+
+      addOneTimeItem: (title, dueDate, time) => {
+        set((s) => {
+          const newItem: TemplateItem = {
+            id: generateId(),
+            title: title.trim(),
+            time,
+            dueDate,
+            order: s.oneTimeItems.length,
+          };
+          return { oneTimeItems: [...s.oneTimeItems, newItem] };
+        });
+      },
+
+      deleteOneTimeItem: (id) => {
+        set((s) => ({
+          oneTimeItems: s.oneTimeItems.filter((item) => item.id !== id),
         }));
       },
 
@@ -259,6 +282,7 @@ export const useStore = create<AppState>()(
         const existing = s.dailyItems[date] ?? [];
         const dow = getDayOfWeek(date);
         const templateItems = s.weeklyTemplate[dow];
+        const oneTimeForDate = s.oneTimeItems.filter((ti) => ti.dueDate === date);
         const assignedTasks = s.tasks.filter(
           (t) => t.assignedDays.includes(dow) && !t.completed
         );
@@ -266,8 +290,27 @@ export const useStore = create<AppState>()(
         const newItems: DailyItem[] = [];
         let order = existing.length;
 
-        // Add template items not already present
+        // Add recurring template items not already present
         templateItems.forEach((ti) => {
+          const alreadyExists = existing.some(
+            (it) => it.templateItemId === ti.id && it.source === 'template'
+          );
+          if (!alreadyExists) {
+            newItems.push({
+              id: generateId(),
+              date,
+              source: 'template',
+              templateItemId: ti.id,
+              title: ti.title,
+              completed: false,
+              time: ti.time,
+              order: order++,
+            });
+          }
+        });
+
+        // Add one-time items due on this date
+        oneTimeForDate.forEach((ti) => {
           const alreadyExists = existing.some(
             (it) => it.templateItemId === ti.id && it.source === 'template'
           );

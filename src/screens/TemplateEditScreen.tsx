@@ -43,12 +43,16 @@ const TemplateEditScreen: React.FC = () => {
   const weeklyTemplate = useStore((s) => s.weeklyTemplate);
   const addTemplateItem = useStore((s) => s.addTemplateItem);
   const deleteTemplateItem = useStore((s) => s.deleteTemplateItem);
+  const addOneTimeItem = useStore((s) => s.addOneTimeItem);
 
   const items = weeklyTemplate[day];
 
+  type ScheduleMode = 'recurring' | 'one-time';
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([day]);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('recurring');
+  const [dueDate, setDueDate] = useState('');
   const inputRef = useRef<TextInput>(null);
 
   const allSelected = selectedDays.length === 7;
@@ -75,12 +79,20 @@ const TemplateEditScreen: React.FC = () => {
     const trimmed = newTitle.trim();
     if (!trimmed) return;
     const timeVal = newTime.trim() || undefined;
-    selectedDays.forEach((d) => {
-      addTemplateItem(d, trimmed, timeVal);
-    });
+
+    if (scheduleMode === 'one-time') {
+      const dateVal = dueDate.trim();
+      if (!dateVal) return;
+      addOneTimeItem(trimmed, dateVal, timeVal);
+      setDueDate('');
+    } else {
+      selectedDays.forEach((d) => {
+        addTemplateItem(d, trimmed, timeVal);
+      });
+      setSelectedDays([day]);
+    }
     setNewTitle('');
     setNewTime('');
-    setSelectedDays([day]);
     inputRef.current?.focus();
   };
 
@@ -193,67 +205,126 @@ const TemplateEditScreen: React.FC = () => {
             },
           ]}
         >
-          {/* Day selector */}
-          <View style={styles.dayRow}>
-            <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
-              Add to:
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
-              {/* Everyday chip */}
-              <TouchableOpacity
-                onPress={toggleAll}
-                style={[
-                  styles.dayChip,
-                  {
-                    backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
-                    borderColor: allSelected ? colors.accent : colors.border,
-                    borderRadius: radius.sm,
-                  },
-                ]}
-              >
-                <Text
+          {/* Schedule mode toggle: Recurring / One-time */}
+          <View style={[styles.modeToggleRow, { marginBottom: 6 }]}>
+            <TouchableOpacity
+              onPress={() => setScheduleMode('recurring')}
+              style={[
+                styles.modeBtn,
+                {
+                  backgroundColor: scheduleMode === 'recurring' ? colors.accent : colors.surfaceElevated,
+                  borderColor: scheduleMode === 'recurring' ? colors.accent : colors.border,
+                  borderRadius: radius.sm,
+                },
+              ]}
+            >
+              <Text style={[styles.modeBtnText, { color: scheduleMode === 'recurring' ? '#fff' : colors.textSecondary }]}>
+                Recurring
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setScheduleMode('one-time')}
+              style={[
+                styles.modeBtn,
+                {
+                  backgroundColor: scheduleMode === 'one-time' ? colors.accent : colors.surfaceElevated,
+                  borderColor: scheduleMode === 'one-time' ? colors.accent : colors.border,
+                  borderRadius: radius.sm,
+                },
+              ]}
+            >
+              <Text style={[styles.modeBtnText, { color: scheduleMode === 'one-time' ? '#fff' : colors.textSecondary }]}>
+                One-time
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Day selector (recurring) or due date input (one-time) */}
+          {scheduleMode === 'recurring' ? (
+            <View style={styles.dayRow}>
+              <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
+                Add to:
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayChips}>
+                {/* Everyday chip */}
+                <TouchableOpacity
+                  onPress={toggleAll}
                   style={[
-                    styles.dayChipText,
-                    { color: allSelected ? '#fff' : colors.textSecondary },
+                    styles.dayChip,
+                    {
+                      backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
+                      borderColor: allSelected ? colors.accent : colors.border,
+                      borderRadius: radius.sm,
+                    },
                   ]}
                 >
-                  Everyday
-                </Text>
-              </TouchableOpacity>
-
-              {/* Individual day chips */}
-              {DAY_CHIPS.map(({ label, day: d }) => {
-                const active = selectedDays.includes(d) && !allSelected;
-                return (
-                  <TouchableOpacity
-                    key={d}
-                    onPress={() => !allSelected && toggleDay(d)}
+                  <Text
                     style={[
-                      styles.dayChip,
-                      styles.dayChipSm,
-                      {
-                        backgroundColor: active
-                          ? colors.accentLight
-                          : colors.surfaceElevated,
-                        borderColor: active ? colors.accent : colors.border,
-                        borderRadius: radius.sm,
-                        opacity: allSelected ? 0.4 : 1,
-                      },
+                      styles.dayChipText,
+                      { color: allSelected ? '#fff' : colors.textSecondary },
                     ]}
                   >
-                    <Text
+                    Everyday
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Individual day chips */}
+                {DAY_CHIPS.map(({ label, day: d }) => {
+                  const active = selectedDays.includes(d) && !allSelected;
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      onPress={() => !allSelected && toggleDay(d)}
                       style={[
-                        styles.dayChipText,
-                        { color: active ? colors.accent : colors.textSecondary },
+                        styles.dayChip,
+                        styles.dayChipSm,
+                        {
+                          backgroundColor: active
+                            ? colors.accentLight
+                            : colors.surfaceElevated,
+                          borderColor: active ? colors.accent : colors.border,
+                          borderRadius: radius.sm,
+                          opacity: allSelected ? 0.4 : 1,
+                        },
                       ]}
                     >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
+                      <Text
+                        style={[
+                          styles.dayChipText,
+                          { color: active ? colors.accent : colors.textSecondary },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={styles.dayRow}>
+              <Text style={[styles.dayRowLabel, { color: colors.textTertiary }]}>
+                Due date:
+              </Text>
+              <TextInput
+                value={dueDate}
+                onChangeText={setDueDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.textTertiary}
+                style={[
+                  styles.dueDateInput,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    color: colors.text,
+                    borderRadius: radius.sm,
+                    borderColor: colors.border,
+                  },
+                ]}
+                keyboardType="numbers-and-punctuation"
+                maxLength={10}
+              />
+            </View>
+          )}
 
           {/* Title + time + add button */}
           <View style={styles.addRow}>
@@ -292,13 +363,14 @@ const TemplateEditScreen: React.FC = () => {
             />
             <TouchableOpacity
               onPress={handleAdd}
-              disabled={!newTitle.trim()}
+              disabled={!newTitle.trim() || (scheduleMode === 'one-time' && !dueDate.trim())}
               style={[
                 styles.addButton,
                 {
-                  backgroundColor: newTitle.trim()
-                    ? colors.accent
-                    : colors.border,
+                  backgroundColor:
+                    newTitle.trim() && (scheduleMode === 'recurring' || dueDate.trim())
+                      ? colors.accent
+                      : colors.border,
                   borderRadius: radius.sm,
                 },
               ]}
@@ -411,6 +483,26 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   timeHint: { fontSize: 11, marginTop: 2 },
+  modeToggleRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  modeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  modeBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dueDateInput: {
+    flex: 1,
+    height: 32,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    borderWidth: 1,
+  },
 });
 
 export default TemplateEditScreen;

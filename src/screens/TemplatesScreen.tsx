@@ -97,10 +97,10 @@ const TemplatesScreen: React.FC = () => {
         ]}
       >
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Weekly Templates
+          New To Dos
         </Text>
         <Text style={[styles.headerSub, { color: colors.textTertiary }]}>
-          Tap a day to edit its checklist
+          Tap a day to add or edit items
         </Text>
       </View>
 

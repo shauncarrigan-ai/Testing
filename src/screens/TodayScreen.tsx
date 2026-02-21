@@ -75,9 +75,13 @@ const TodayScreen: React.FC = () => {
 
   // ── Build section list ─────────────────────────────────────────────────────
   const listData = useMemo<ListRow[]>(() => {
-    const rolled = todayItems.filter((i) => i.source === 'rollover');
-    const template = todayItems.filter((i) => i.source === 'template');
-    const tasks = todayItems.filter((i) => i.source === 'project_task');
+    const incomplete = (items: typeof todayItems) => items.filter((i) => !i.completed);
+
+    const rolled = incomplete(todayItems.filter((i) => i.source === 'rollover'));
+    const template = incomplete(todayItems.filter((i) => i.source === 'template'));
+    const tasks = incomplete(todayItems.filter((i) => i.source === 'project_task'));
+    const completedItems = todayItems.filter((i) => i.completed);
+
     const rows: ListRow[] = [];
 
     if (rolled.length) {
@@ -92,6 +96,11 @@ const TodayScreen: React.FC = () => {
     if (tasks.length) {
       rows.push({ kind: 'section', id: 'h-tasks', title: 'Projects', count: tasks.length });
       tasks.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
+    }
+    // Completed items sink to the bottom
+    if (completedItems.length) {
+      rows.push({ kind: 'section', id: 'h-completed', title: 'Completed', count: completedItems.length });
+      completedItems.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
     }
     return rows;
   }, [todayItems, today]);

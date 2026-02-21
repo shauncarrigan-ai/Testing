@@ -134,6 +134,7 @@ const MainTabs: React.FC = () => {
         name="Templates"
         component={TemplatesScreen}
         options={{
+          tabBarLabel: 'New to dos',
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>📋</Text>
           ),

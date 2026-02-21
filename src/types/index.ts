@@ -12,6 +12,7 @@ export interface TemplateItem {
   title: string;
   time?: string; // "HH:MM" – optional per-item reminder
   order: number;
+  dueDate?: string; // "YYYY-MM-DD" – if set, this is a one-time item (not recurring)
 }
 
 export type WeeklyTemplate = Record<DayOfWeek, TemplateItem[]>;
