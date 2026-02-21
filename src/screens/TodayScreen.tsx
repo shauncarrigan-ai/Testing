@@ -18,8 +18,6 @@ import {
   getTodayString,
   addDays,
   formatLongDate,
-  getDayOfWeek,
-  getDayLabel,
 } from '../utils/dateUtils';
 import CheckItem from '../components/CheckItem';
 import ProgressBar from '../components/ProgressBar';
@@ -84,18 +82,15 @@ const TodayScreen: React.FC = () => {
 
     const rows: ListRow[] = [];
 
-    if (rolled.length) {
-      rows.push({ kind: 'section', id: 'h-rolled', title: 'Carried over', count: rolled.length });
-      rolled.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
-    }
-    if (template.length) {
-      const dow = getDayOfWeek(today);
-      rows.push({ kind: 'section', id: 'h-template', title: getDayLabel(dow), count: template.length });
-      template.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
-    }
+    // Template items shown first with no section header
+    template.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
     if (tasks.length) {
       rows.push({ kind: 'section', id: 'h-tasks', title: 'Projects', count: tasks.length });
       tasks.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
+    }
+    if (rolled.length) {
+      rows.push({ kind: 'section', id: 'h-rolled', title: 'Carried over', count: rolled.length });
+      rolled.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
     }
     // Completed items sink to the bottom
     if (completedItems.length) {
@@ -143,6 +138,7 @@ const TodayScreen: React.FC = () => {
         completed={row.item.completed}
         source={row.item.source}
         time={row.item.time}
+        rolledFromDate={row.item.source === 'rollover' ? row.item.rolledOverFromDate : undefined}
         projectColor={getProjectColor(row.item.projectId)}
         onToggle={() => handleToggle(row.item.id)}
         onLongPress={() => handleLongPress(row.item)}
@@ -171,11 +167,11 @@ const TodayScreen: React.FC = () => {
         ]}
       >
         <View>
-          <Text style={[styles.headerDate, { color: colors.textTertiary }]}>
-            {formatLongDate(today)}
-          </Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Today
+          </Text>
+          <Text style={[styles.headerDate, { color: colors.textTertiary }]}>
+            {formatLongDate(today)}
           </Text>
         </View>
 
@@ -243,8 +239,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerDate: {
-    fontSize: 13,
-    marginBottom: 2,
+    fontSize: 15,
+    marginTop: 2,
   },
   headerTitle: {
     fontSize: 26,

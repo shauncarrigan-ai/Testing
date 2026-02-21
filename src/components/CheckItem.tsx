@@ -8,12 +8,14 @@ import {
 } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { DailyItemSource } from '../types';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 interface Props {
   title: string;
   completed: boolean;
   source?: DailyItemSource;
   time?: string;
+  rolledFromDate?: string;
   projectColor?: string;
   onToggle: () => void;
   onLongPress?: () => void;
@@ -24,6 +26,7 @@ const CheckItem: React.FC<Props> = ({
   completed,
   source,
   time,
+  rolledFromDate,
   projectColor,
   onToggle,
   onLongPress,
@@ -105,6 +108,11 @@ const CheckItem: React.FC<Props> = ({
               {time}
             </Text>
           )}
+          {rolledFromDate && !completed && (
+            <Text style={[styles.rolledDate, { color: colors.textTertiary }]}>
+              From {formatDisplayDate(rolledFromDate)}
+            </Text>
+          )}
         </View>
 
         {/* Rollover badge */}
@@ -164,6 +172,11 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 11,
     marginTop: 2,
+  },
+  rolledDate: {
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   badge: {
     width: 24,
