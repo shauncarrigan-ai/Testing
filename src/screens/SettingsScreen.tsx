@@ -17,10 +17,10 @@ import { requestPermissions, scheduleDailyReminder } from '../services/notificat
 type Period = 'AM' | 'PM';
 
 // ── Hour Carousel constants ──────────────────────────────────────────────────
-const ITEM_H = 44;
-const VISIBLE_ITEMS = 5;
-const CAROUSEL_H = ITEM_H * VISIBLE_ITEMS; // 220
-const CAROUSEL_PAD = CAROUSEL_H / 2 - ITEM_H / 2; // 88 — centers item at scrollY = idx * ITEM_H
+const ITEM_H = 36;
+const VISIBLE_ITEMS = 3;
+const CAROUSEL_H = ITEM_H * VISIBLE_ITEMS; // 108
+const CAROUSEL_PAD = CAROUSEL_H / 2 - ITEM_H / 2; // 36 — centers item at scrollY = idx * ITEM_H
 
 interface HourCarouselProps {
   hours: number[];
@@ -94,7 +94,7 @@ const HourCarousel: React.FC<HourCarouselProps> = ({
             >
               <Text
                 style={{
-                  fontSize: isSelected ? 22 : 15,
+                  fontSize: isSelected ? 18 : 13,
                   fontWeight: isSelected ? '700' : '400',
                   color: isSelected ? colors.accent : colors.textSecondary,
                   opacity: isSelected ? 1 : 0.55,

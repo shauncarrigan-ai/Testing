@@ -270,7 +270,7 @@ const TemplatesScreen: React.FC = () => {
             />
 
             {/* Mode toggle: One-time (default) / Recurring */}
-            <View style={[styles.modeToggleRow, { marginTop: spacing.md, marginBottom: spacing.sm }]}>
+            <View style={[styles.modeToggleRow, { marginTop: spacing.md }]}>
               <TouchableOpacity
                 onPress={() => setScheduleMode('one-time')}
                 style={[
@@ -304,6 +304,9 @@ const TemplatesScreen: React.FC = () => {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Separator */}
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginVertical: spacing.sm }} />
 
             {/* Date (one-time) or Day chips (recurring) */}
             {scheduleMode === 'one-time' ? (

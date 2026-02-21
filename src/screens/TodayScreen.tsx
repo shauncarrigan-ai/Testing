@@ -175,16 +175,28 @@ const TodayScreen: React.FC = () => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Stats')}
-          style={[
-            styles.statsButton,
-            { backgroundColor: colors.surfaceElevated },
-          ]}
-          accessibilityLabel="View stats"
-        >
-          <Text style={{ fontSize: 16 }}>📊</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Calendar')}
+            style={[
+              styles.statsButton,
+              { backgroundColor: colors.surfaceElevated },
+            ]}
+            accessibilityLabel="View calendar"
+          >
+            <Text style={{ fontSize: 16 }}>🗓</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Stats')}
+            style={[
+              styles.statsButton,
+              { backgroundColor: colors.surfaceElevated },
+            ]}
+            accessibilityLabel="View stats"
+          >
+            <Text style={{ fontSize: 16 }}>📊</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Progress ── */}
