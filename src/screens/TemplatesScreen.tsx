@@ -13,6 +13,9 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
+import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import { PROJECT_COLORS } from '../theme';
@@ -24,7 +27,12 @@ import {
   parseDate,
   formatLongDate,
 } from '../utils/dateUtils';
-import { DayOfWeek, TemplateItem, Task } from '../types';
+import { DayOfWeek, TemplateItem, RootStackParamList, MainTabParamList } from '../types';
+
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Templates'>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 type ScheduleMode = 'recurring' | 'one-time' | 'project';
 type DateMode = 'today' | 'tomorrow' | 'date';
@@ -61,19 +69,16 @@ const buildCalendarRows = (year: number, month: number): (number | null)[][] => 
 
 const TemplatesScreen: React.FC = () => {
   const { colors, spacing, radius, isDark } = useTheme();
+  const navigation = useNavigation<Nav>();
   const todayDow = getDayOfWeek(getTodayString());
 
   const weeklyTemplate = useStore((s) => s.weeklyTemplate);
   const oneTimeItems = useStore((s) => s.oneTimeItems);
   const projects = useStore((s) => s.projects);
-  const tasks = useStore((s) => s.tasks);
   const addTemplateItem = useStore((s) => s.addTemplateItem);
   const deleteTemplateItem = useStore((s) => s.deleteTemplateItem);
   const addOneTimeItem = useStore((s) => s.addOneTimeItem);
   const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
-  const addTask = useStore((s) => s.addTask);
-  const deleteTask = useStore((s) => s.deleteTask);
-  const assignTaskToDays = useStore((s) => s.assignTaskToDays);
   const addProject = useStore((s) => s.addProject);
 
   const activeProjects = projects.filter((p) => !p.archived);
@@ -95,7 +100,6 @@ const TemplatesScreen: React.FC = () => {
   const [calendarTempDate, setCalendarTempDate] = useState(getTodayString());
 
   // Project mode state
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [newProjectModalVisible, setNewProjectModalVisible] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectColor, setNewProjectColor] = useState(PROJECT_COLORS[0]);
@@ -185,13 +189,6 @@ const TemplatesScreen: React.FC = () => {
         addTemplateItem(d, trimmed, timeVal);
       });
       setSelectedDays([todayDow]);
-    } else if (scheduleMode === 'project') {
-      if (!selectedProjectId) return;
-      const task = addTask(selectedProjectId, null, trimmed);
-      if (selectedDays.length > 0) {
-        assignTaskToDays(task.id, selectedDays);
-      }
-      setSelectedDays([todayDow]);
     }
     setNewTitle('');
     setNewTime('');
@@ -215,40 +212,21 @@ const TemplatesScreen: React.FC = () => {
     ]);
   };
 
-  const handleDeleteProjectTask = (task: Task) => {
-    Alert.alert('Remove Task', `Remove "${task.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => deleteTask(task.id),
-      },
-    ]);
-  };
-
   const handleCreateProject = () => {
     if (!newProjectTitle.trim()) return;
     const project = addProject(newProjectTitle.trim(), newProjectColor);
-    setSelectedProjectId(project.id);
     setNewProjectTitle('');
     setNewProjectColor(PROJECT_COLORS[0]);
     setNewProjectModalVisible(false);
+    navigation.navigate('ProjectDetail', { projectId: project.id });
   };
 
   const canAdd =
     newTitle.trim().length > 0 &&
-    (scheduleMode === 'recurring'
-      ? true
-      : scheduleMode === 'one-time'
-      ? dueDate.trim().length > 0
-      : selectedProjectId !== null && selectedDays.length > 0);
+    (scheduleMode === 'one-time' ? dueDate.trim().length > 0 : true);
 
   const today = getTodayString();
   const calendarRows = buildCalendarRows(calendarYear, calendarMonth);
-
-  const selectedProjectTasks = selectedProjectId
-    ? tasks.filter((t) => t.projectId === selectedProjectId && t.level === 0)
-    : [];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -299,24 +277,26 @@ const TemplatesScreen: React.FC = () => {
               },
             ]}
           >
-            {/* Large title input */}
-            <TextInput
-              ref={inputRef}
-              value={newTitle}
-              onChangeText={setNewTitle}
-              placeholder="What do you need to do?"
-              placeholderTextColor={colors.textTertiary}
-              style={[
-                styles.titleInputLarge,
-                {
-                  color: colors.text,
-                  borderBottomColor: colors.separator,
-                },
-              ]}
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-              autoFocus
-            />
+            {/* Large title input — hidden in project mode */}
+            {scheduleMode !== 'project' && (
+              <TextInput
+                ref={inputRef}
+                value={newTitle}
+                onChangeText={setNewTitle}
+                placeholder="What do you need to do?"
+                placeholderTextColor={colors.textTertiary}
+                style={[
+                  styles.titleInputLarge,
+                  {
+                    color: colors.text,
+                    borderBottomColor: colors.separator,
+                  },
+                ]}
+                returnKeyType="done"
+                onSubmitEditing={handleAdd}
+                autoFocus={scheduleMode !== 'project'}
+              />
+            )}
 
             {/* Mode toggle: One-time / Recurring / Project */}
             <View style={[styles.modeToggleRow, { marginTop: spacing.md }]}>
@@ -453,40 +433,31 @@ const TemplatesScreen: React.FC = () => {
                 </View>
               </View>
             ) : (
-              /* ── Project mode ── */
-              <View style={{ marginBottom: spacing.sm }}>
-                {/* Project picker */}
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
-                  Project
-                </Text>
-                {activeProjects.map((proj) => {
-                  const isSelected = proj.id === selectedProjectId;
-                  return (
-                    <TouchableOpacity
-                      key={proj.id}
-                      onPress={() => setSelectedProjectId(proj.id)}
-                      style={[
-                        styles.projectRow,
-                        {
-                          backgroundColor: isSelected ? colors.accentLight : colors.surfaceElevated,
-                          borderColor: isSelected ? colors.accent : colors.border,
-                          borderRadius: radius.sm,
-                          marginBottom: 6,
-                        },
-                      ]}
-                    >
-                      <View style={[styles.projectDot, { backgroundColor: proj.color }]} />
-                      <Text style={[styles.projectRowTitle, { color: isSelected ? colors.accent : colors.text, flex: 1 }]}>
-                        {proj.title}
-                      </Text>
-                      {isSelected && (
-                        <Text style={{ color: colors.accent, fontSize: 14, fontWeight: '700' }}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+              /* ── Project mode ── tap a project to open it ── */
+              <View>
+                {activeProjects.map((proj) => (
+                  <TouchableOpacity
+                    key={proj.id}
+                    onPress={() => navigation.navigate('ProjectDetail', { projectId: proj.id })}
+                    style={[
+                      styles.projectRow,
+                      {
+                        backgroundColor: colors.surfaceElevated,
+                        borderColor: colors.border,
+                        borderRadius: radius.sm,
+                        marginBottom: 6,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.projectDot, { backgroundColor: proj.color }]} />
+                    <Text style={[styles.projectRowTitle, { color: colors.text, flex: 1 }]}>
+                      {proj.title}
+                    </Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 18, fontWeight: '300' }}>›</Text>
+                  </TouchableOpacity>
+                ))}
                 {activeProjects.length === 0 && (
-                  <Text style={[styles.emptyText, { color: colors.textTertiary, textAlign: 'left', marginBottom: spacing.xs }]}>
+                  <Text style={[styles.emptyText, { color: colors.textTertiary, textAlign: 'left' }]}>
                     No projects yet.
                   </Text>
                 )}
@@ -497,63 +468,17 @@ const TemplatesScreen: React.FC = () => {
                     {
                       borderColor: colors.border,
                       borderRadius: radius.sm,
+                      marginTop: 4,
                     },
                   ]}
                 >
                   <Text style={[styles.newProjectBtnText, { color: colors.accent }]}>+ New Project</Text>
                 </TouchableOpacity>
-
-                {/* Separator */}
-                <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginVertical: spacing.sm }} />
-
-                {/* Day chips for project tasks */}
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
-                  Show on days
-                </Text>
-                <View style={styles.dayChipsWrap}>
-                  <TouchableOpacity
-                    onPress={toggleAll}
-                    style={[
-                      styles.dayChip,
-                      {
-                        backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
-                        borderColor: allSelected ? colors.accent : colors.border,
-                        borderRadius: radius.sm,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.dayChipText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
-                      Every day
-                    </Text>
-                  </TouchableOpacity>
-                  {DAY_CHIPS.map(({ label, day: d }) => {
-                    const active = selectedDays.includes(d) && !allSelected;
-                    return (
-                      <TouchableOpacity
-                        key={d}
-                        onPress={() => !allSelected && toggleDay(d)}
-                        style={[
-                          styles.dayChip,
-                          {
-                            backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
-                            borderColor: active ? colors.accent : colors.border,
-                            borderRadius: radius.sm,
-                            opacity: allSelected ? 0.4 : 1,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.dayChipText, { color: active ? colors.accent : colors.textSecondary }]}>
-                          {label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
               </View>
             )}
 
-            {/* Optional time + Add button */}
-            <View style={styles.addRow}>
+            {/* Optional time + Add button — hidden in project mode */}
+            {scheduleMode !== 'project' && <View style={styles.addRow}>
               <TextInput
                 value={newTime}
                 onChangeText={setNewTime}
@@ -584,7 +509,7 @@ const TemplatesScreen: React.FC = () => {
               >
                 <Text style={styles.addButtonText}>Add</Text>
               </TouchableOpacity>
-            </View>
+            </View>}
           </View>
 
           {/* ── Saved items list (one-time / recurring) ── */}
@@ -638,66 +563,6 @@ const TemplatesScreen: React.FC = () => {
             </View>
           )}
 
-          {(scheduleMode === 'one-time' || scheduleMode === 'recurring') && activeItems.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              {scheduleMode === 'one-time'
-                ? 'No one-time items yet.'
-                : 'No recurring items yet.'}
-            </Text>
-          )}
-
-          {/* ── Project tasks list ── */}
-          {scheduleMode === 'project' && selectedProjectId && (
-            <View>
-              <Text style={[styles.savedLabel, { color: colors.textTertiary, marginBottom: spacing.sm }]}>
-                PROJECT TASKS
-              </Text>
-              {selectedProjectTasks.length === 0 && (
-                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                  No tasks in this project yet.
-                </Text>
-              )}
-              {selectedProjectTasks.map((task) => {
-                const proj = projects.find((p) => p.id === task.projectId);
-                return (
-                  <View
-                    key={task.id}
-                    style={[
-                      styles.itemRow,
-                      {
-                        backgroundColor: colors.surface,
-                        borderRadius: radius.md,
-                        marginBottom: spacing.xs,
-                        paddingHorizontal: spacing.md,
-                        paddingVertical: spacing.sm + 4,
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.projectDot, { backgroundColor: proj?.color ?? colors.border, marginRight: spacing.sm }]} />
-                    <View style={styles.itemContent}>
-                      <Text style={[styles.itemTitle, { color: colors.text }]}>{task.title}</Text>
-                      {task.assignedDays.length > 0 && (
-                        <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
-                          📅 {task.assignedDays.map((d) => d.slice(0, 2)).join(', ')}
-                        </Text>
-                      )}
-                      {task.completed && (
-                        <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>✓ completed</Text>
-                      )}
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteProjectTask(task)}
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                      <Text style={[styles.deleteBtn, { color: colors.textTertiary }]}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

@@ -26,6 +26,10 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  // Routes that should appear in the tab bar (Calendar is a hidden tab)
+  const visibleRoutes = state.routes.filter((r) => r.name !== 'Calendar');
+  const activeRouteName = state.routes[state.index].name;
+
   return (
     <View
       style={[
@@ -37,10 +41,10 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
         },
       ]}
     >
-      {state.routes.map((route, index) => {
+      {visibleRoutes.map((route, index) => {
         const { options } = descriptors[route.key];
-        const isFocused = state.index === index;
-        const isLast = index === state.routes.length - 1;
+        const isFocused = activeRouteName === route.name;
+        const isLast = index === visibleRoutes.length - 1;
 
         const onPress = () => {
           const event = navigation.emit({
