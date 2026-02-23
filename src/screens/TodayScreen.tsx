@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -97,7 +97,7 @@ const TodayScreen: React.FC = () => {
     }
     // Completed items sink to the bottom
     if (completedItems.length) {
-      rows.push({ kind: 'section', id: 'h-completed', title: 'Completed', count: completedItems.length });
+      rows.push({ kind: 'section', id: 'h-completed', title: 'Done', count: completedItems.length });
       completedItems.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
     }
     return rows;
@@ -111,8 +111,25 @@ const TodayScreen: React.FC = () => {
     [projects]
   );
 
-  const handleToggle = (itemId: string) => {
-    toggleDailyItem(today, itemId);
+  // Track items mid-animation (completing but not yet moved to Done)
+  const [optimisticCompleted, setOptimisticCompleted] = useState<Set<string>>(new Set());
+
+  const handleToggle = (itemId: string, currentlyCompleted: boolean) => {
+    if (currentlyCompleted) {
+      // Unchecking: move back immediately
+      toggleDailyItem(today, itemId);
+    } else {
+      // Checking: show animation first, then move to Done after 350ms
+      setOptimisticCompleted((prev) => new Set(prev).add(itemId));
+      setTimeout(() => {
+        toggleDailyItem(today, itemId);
+        setOptimisticCompleted((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+      }, 350);
+    }
   };
 
   const handleLongPress = (item: DailyItem) => {
@@ -135,15 +152,16 @@ const TodayScreen: React.FC = () => {
         </View>
       );
     }
+    const effectiveCompleted = row.item.completed || optimisticCompleted.has(row.item.id);
     return (
       <CheckItem
         title={row.item.title}
-        completed={row.item.completed}
+        completed={effectiveCompleted}
         source={row.item.source}
         time={row.item.time}
         rolledFromDate={row.item.source === 'rollover' ? row.item.rolledOverFromDate : undefined}
         projectColor={getProjectColor(row.item.projectId)}
-        onToggle={() => handleToggle(row.item.id)}
+        onToggle={() => handleToggle(row.item.id, effectiveCompleted)}
         onLongPress={() => handleLongPress(row.item)}
       />
     );

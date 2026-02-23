@@ -591,11 +591,14 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
   },
   modalCard: {
+    width: '100%',
     padding: 24,
-    paddingBottom: 36,
+    paddingBottom: 28,
   },
   modalTitle: {
     fontSize: 18,

@@ -105,8 +105,9 @@ const tabStyles = StyleSheet.create({
     fontWeight: '600',
   },
   separator: {
-    width: StyleSheet.hairlineWidth,
+    width: 1,
     marginVertical: 6,
+    opacity: 0.35,
   },
 });
 

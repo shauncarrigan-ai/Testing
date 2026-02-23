@@ -258,6 +258,22 @@ const TemplatesScreen: React.FC = () => {
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Add To Do
         </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Calendar')}
+            style={[styles.headerBtn, { backgroundColor: colors.surfaceElevated }]}
+            accessibilityLabel="View calendar"
+          >
+            <Text style={{ fontSize: 16 }}>🗓</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Stats')}
+            style={[styles.headerBtn, { backgroundColor: colors.surfaceElevated }]}
+            accessibilityLabel="View stats"
+          >
+            <Text style={{ fontSize: 16 }}>📊</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -779,6 +795,16 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 26,
