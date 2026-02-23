@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,19 @@ const CheckItem: React.FC<Props> = ({
 }) => {
   const { colors, spacing, radius } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
+  const strikeAnim = useRef(new Animated.Value(completed ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (completed) {
+      Animated.timing(strikeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      strikeAnim.setValue(0);
+    }
+  }, [completed]);
 
   const handlePress = () => {
     Animated.sequence([
@@ -91,18 +104,32 @@ const CheckItem: React.FC<Props> = ({
 
         {/* Content */}
         <View style={styles.content}>
-          <Text
-            style={[
-              styles.title,
-              {
-                color: completed ? colors.textTertiary : colors.text,
-                textDecorationLine: completed ? 'line-through' : 'none',
-              },
-            ]}
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
+          <View style={{ position: 'relative' }}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: completed ? colors.textTertiary : colors.text,
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {title}
+            </Text>
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                height: 1.5,
+                backgroundColor: colors.textTertiary,
+                width: strikeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              }}
+            />
+          </View>
           {time && !completed && (
             <Text style={[styles.time, { color: colors.textTertiary }]}>
               {time}

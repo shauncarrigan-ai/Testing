@@ -80,6 +80,8 @@ const TemplatesScreen: React.FC = () => {
   const addOneTimeItem = useStore((s) => s.addOneTimeItem);
   const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
   const addProject = useStore((s) => s.addProject);
+  const tasks = useStore((s) => s.tasks);
+  const addTask = useStore((s) => s.addTask);
 
   const activeProjects = projects.filter((p) => !p.archived);
   const recurringItems = weeklyTemplate[todayDow];
@@ -99,10 +101,11 @@ const TemplatesScreen: React.FC = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarTempDate, setCalendarTempDate] = useState(getTodayString());
 
-  // Project mode state
-  const [newProjectModalVisible, setNewProjectModalVisible] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [newProjectColor, setNewProjectColor] = useState(PROJECT_COLORS[0]);
+  // Project mode inline state
+  const [inlineAddingProject, setInlineAddingProject] = useState(false);
+  const [inlineProjectName, setInlineProjectName] = useState('');
+  const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
+  const [inlineTaskTitle, setInlineTaskTitle] = useState('');
 
   const inputRef = useRef<TextInput>(null);
 
@@ -212,13 +215,20 @@ const TemplatesScreen: React.FC = () => {
     ]);
   };
 
-  const handleCreateProject = () => {
-    if (!newProjectTitle.trim()) return;
-    const project = addProject(newProjectTitle.trim(), newProjectColor);
-    setNewProjectTitle('');
-    setNewProjectColor(PROJECT_COLORS[0]);
-    setNewProjectModalVisible(false);
-    navigation.navigate('ProjectDetail', { projectId: project.id });
+  const handleInlineCreateProject = () => {
+    const name = inlineProjectName.trim();
+    if (!name) return;
+    const project = addProject(name, PROJECT_COLORS[0]);
+    setInlineProjectName('');
+    setInlineAddingProject(false);
+    setFocusedProjectId(project.id);
+  };
+
+  const handleAddInlineTask = () => {
+    const title = inlineTaskTitle.trim();
+    if (!title || !focusedProjectId) return;
+    addTask(focusedProjectId, null, title);
+    setInlineTaskTitle('');
   };
 
   const canAdd =
@@ -433,47 +443,150 @@ const TemplatesScreen: React.FC = () => {
                 </View>
               </View>
             ) : (
-              /* ── Project mode ── tap a project to open it ── */
+              /* ── Project mode ── inline project + task creation ── */
               <View>
-                {activeProjects.map((proj) => (
-                  <TouchableOpacity
-                    key={proj.id}
-                    onPress={() => navigation.navigate('ProjectDetail', { projectId: proj.id })}
-                    style={[
-                      styles.projectRow,
-                      {
-                        backgroundColor: colors.surfaceElevated,
-                        borderColor: colors.border,
-                        borderRadius: radius.sm,
-                        marginBottom: 6,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.projectDot, { backgroundColor: proj.color }]} />
-                    <Text style={[styles.projectRowTitle, { color: colors.text, flex: 1 }]}>
-                      {proj.title}
-                    </Text>
-                    <Text style={{ color: colors.textTertiary, fontSize: 18, fontWeight: '300' }}>›</Text>
-                  </TouchableOpacity>
-                ))}
-                {activeProjects.length === 0 && (
+                {activeProjects.map((proj) => {
+                  const isFocused = focusedProjectId === proj.id;
+                  const projTasks = tasks.filter(
+                    (t) => t.projectId === proj.id && !t.completed && t.level === 0
+                  );
+                  return (
+                    <View key={proj.id}>
+                      <View
+                        style={[
+                          styles.projectRow,
+                          {
+                            backgroundColor: isFocused ? colors.accentLight : colors.surfaceElevated,
+                            borderColor: isFocused ? colors.accent : colors.border,
+                            borderRadius: radius.sm,
+                            marginBottom: 6,
+                          },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          onPress={() => setFocusedProjectId(isFocused ? null : proj.id)}
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}
+                        >
+                          <View style={[styles.projectDot, { backgroundColor: proj.color }]} />
+                          <Text style={[styles.projectRowTitle, { color: colors.text, flex: 1 }]}>
+                            {proj.title}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => navigation.navigate('ProjectDetail', { projectId: proj.id })}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                          <Text style={{ color: colors.textTertiary, fontSize: 18, fontWeight: '300' }}>›</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {isFocused && (
+                        <View style={{ marginLeft: 10, marginBottom: 8 }}>
+                          {projTasks.map((task) => (
+                            <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 6 }}>
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textTertiary }} />
+                              <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>{task.title}</Text>
+                            </View>
+                          ))}
+                          <View style={[styles.addRow, { marginTop: 4 }]}>
+                            <TextInput
+                              value={inlineTaskTitle}
+                              onChangeText={setInlineTaskTitle}
+                              placeholder="Add task…"
+                              placeholderTextColor={colors.textTertiary}
+                              style={[
+                                styles.timeInput,
+                                {
+                                  flex: 1,
+                                  backgroundColor: colors.surfaceElevated,
+                                  color: colors.text,
+                                  borderRadius: radius.sm,
+                                  borderColor: colors.border,
+                                },
+                              ]}
+                              returnKeyType="done"
+                              onSubmitEditing={handleAddInlineTask}
+                              autoFocus
+                            />
+                            <TouchableOpacity
+                              onPress={handleAddInlineTask}
+                              disabled={!inlineTaskTitle.trim()}
+                              style={[
+                                styles.addButton,
+                                {
+                                  backgroundColor: inlineTaskTitle.trim() ? colors.accent : colors.border,
+                                  borderRadius: radius.sm,
+                                },
+                              ]}
+                            >
+                              <Text style={styles.addButtonText}>Add</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+                {activeProjects.length === 0 && !inlineAddingProject && (
                   <Text style={[styles.emptyText, { color: colors.textTertiary, textAlign: 'left' }]}>
                     No projects yet.
                   </Text>
                 )}
-                <TouchableOpacity
-                  onPress={() => setNewProjectModalVisible(true)}
-                  style={[
-                    styles.newProjectBtn,
-                    {
-                      borderColor: colors.border,
-                      borderRadius: radius.sm,
-                      marginTop: 4,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.newProjectBtnText, { color: colors.accent }]}>+ New Project</Text>
-                </TouchableOpacity>
+                {inlineAddingProject ? (
+                  <View style={[styles.addRow, { marginBottom: 4 }]}>
+                    <TextInput
+                      value={inlineProjectName}
+                      onChangeText={setInlineProjectName}
+                      placeholder="Project name…"
+                      placeholderTextColor={colors.textTertiary}
+                      style={[
+                        styles.timeInput,
+                        {
+                          flex: 1,
+                          backgroundColor: colors.surfaceElevated,
+                          color: colors.text,
+                          borderRadius: radius.sm,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      returnKeyType="done"
+                      onSubmitEditing={handleInlineCreateProject}
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={handleInlineCreateProject}
+                      disabled={!inlineProjectName.trim()}
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: inlineProjectName.trim() ? colors.accent : colors.border,
+                          borderRadius: radius.sm,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.addButtonText}>Add</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setInlineAddingProject(false); setInlineProjectName(''); }}
+                      style={{ paddingHorizontal: 8, height: 40, justifyContent: 'center' }}
+                    >
+                      <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setInlineAddingProject(true)}
+                    style={[
+                      styles.newProjectBtn,
+                      {
+                        borderColor: colors.border,
+                        borderRadius: radius.sm,
+                        marginTop: 4,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.newProjectBtnText, { color: colors.accent }]}>+ New Project</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -657,75 +770,6 @@ const TemplatesScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* ── New Project Modal ── */}
-      <Modal
-        visible={newProjectModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setNewProjectModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.calendarCard,
-              {
-                backgroundColor: colors.surface,
-                borderRadius: radius.lg,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.calMonthTitle, { color: colors.text, marginBottom: spacing.md }]}>
-              New Project
-            </Text>
-            <TextInput
-              value={newProjectTitle}
-              onChangeText={setNewProjectTitle}
-              placeholder="Project name"
-              placeholderTextColor={colors.textTertiary}
-              style={[
-                styles.projectNameInput,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.text,
-                  borderColor: colors.border,
-                  borderRadius: radius.sm,
-                  marginBottom: spacing.md,
-                },
-              ]}
-              autoFocus
-            />
-            {/* Color picker */}
-            <View style={styles.colorRow}>
-              {PROJECT_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setNewProjectColor(c)}
-                  style={[
-                    styles.colorSwatch,
-                    {
-                      backgroundColor: c,
-                      borderWidth: newProjectColor === c ? 3 : 1,
-                      borderColor: newProjectColor === c ? colors.text : 'transparent',
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-            <View style={[styles.calFooter, { marginTop: spacing.md }]}>
-              <TouchableOpacity onPress={() => setNewProjectModalVisible(false)} style={styles.calFooterBtn}>
-                <Text style={[styles.calCancelText, { color: colors.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleCreateProject} style={styles.calFooterBtn}>
-                <Text style={[styles.calSelectText, { color: newProjectTitle.trim() ? colors.accent : colors.textTertiary }]}>
-                  Create
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -841,22 +885,6 @@ const styles = StyleSheet.create({
   newProjectBtnText: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  projectNameInput: {
-    height: 44,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    borderWidth: 1,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  colorSwatch: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
   },
   addRow: {
     flexDirection: 'row',
