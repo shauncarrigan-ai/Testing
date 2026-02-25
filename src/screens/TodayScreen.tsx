@@ -66,7 +66,7 @@ const TodayScreen: React.FC = () => {
     }, [generateDailyItems, today])
   );
 
-  const todayItems = dailyItems[today] ?? [];
+  const todayItems = useMemo(() => dailyItems[today] ?? [], [dailyItems, today]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const total = todayItems.length;
