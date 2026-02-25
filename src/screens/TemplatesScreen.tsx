@@ -109,7 +109,11 @@ const TemplatesScreen: React.FC = () => {
   const [inlineProjectName, setInlineProjectName] = useState('');
   const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
   const [inlineTaskTitle, setInlineTaskTitle] = useState('');
+  const [inlineTaskDueDate, setInlineTaskDueDate] = useState<string | null>(null);
   const [colorPickerProjectId, setColorPickerProjectId] = useState<string | null>(null);
+
+  // Tracks which field the shared calendar modal is serving
+  const [calendarPurpose, setCalendarPurpose] = useState<'oneTime' | 'task'>('oneTime');
 
   const inputRef = useRef<TextInput>(null);
 
@@ -144,13 +148,28 @@ const TemplatesScreen: React.FC = () => {
       setCalendarYear(d.getFullYear());
       setCalendarMonth(d.getMonth());
       setCalendarTempDate(dueDate);
+      setCalendarPurpose('oneTime');
       setCalendarVisible(true);
       setDateMode('date');
     }
   };
 
+  const handleTaskDatePicker = () => {
+    const base = inlineTaskDueDate ?? getTodayString();
+    const d = parseDate(base);
+    setCalendarYear(d.getFullYear());
+    setCalendarMonth(d.getMonth());
+    setCalendarTempDate(base);
+    setCalendarPurpose('task');
+    setCalendarVisible(true);
+  };
+
   const handleCalendarSelect = () => {
-    setDueDate(calendarTempDate);
+    if (calendarPurpose === 'task') {
+      setInlineTaskDueDate(calendarTempDate);
+    } else {
+      setDueDate(calendarTempDate);
+    }
     setCalendarVisible(false);
   };
 
@@ -199,7 +218,7 @@ const TemplatesScreen: React.FC = () => {
       selectedDays.forEach((d) => {
         addTemplateItem(d, trimmed, timeVal);
       });
-      setSelectedDays([todayDow]);
+      // keep selectedDays so the next task inherits the same days
     }
     setNewTitle('');
     setNewTime('');
@@ -236,8 +255,9 @@ const TemplatesScreen: React.FC = () => {
   const handleAddInlineTask = () => {
     const title = inlineTaskTitle.trim();
     if (!title || !focusedProjectId) return;
-    addTask(focusedProjectId, null, title);
+    addTask(focusedProjectId, null, title, inlineTaskDueDate ?? undefined);
     setInlineTaskTitle('');
+    setInlineTaskDueDate(null);
   };
 
   const handleDeleteProject = (projectId: string, projectTitle: string) => {
@@ -610,8 +630,15 @@ const TemplatesScreen: React.FC = () => {
                         <View style={{ marginLeft: 10, marginBottom: 8 }}>
                           {projTasks.map((task) => (
                             <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 6 }}>
-                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textTertiary }} />
-                              <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>{task.title}</Text>
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textTertiary, flexShrink: 0 }} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13, color: colors.textSecondary }}>{task.title}</Text>
+                                {task.dueDate && (
+                                  <Text style={{ fontSize: 11, color: colors.accent, marginTop: 1 }}>
+                                    📅 {formatLongDate(task.dueDate)}
+                                  </Text>
+                                )}
+                              </View>
                               <TouchableOpacity
                                 onPress={() => handleDeleteTask(task.id, task.title)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -654,6 +681,60 @@ const TemplatesScreen: React.FC = () => {
                               <Text style={styles.addButtonText}>Add</Text>
                             </TouchableOpacity>
                           </View>
+                          {/* Due date row for inline task */}
+                          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                            {[
+                              { label: 'Today', value: getTodayString() },
+                              { label: 'Tomorrow', value: addDays(getTodayString(), 1) },
+                            ].map(({ label, value }) => {
+                              const active = inlineTaskDueDate === value;
+                              return (
+                                <TouchableOpacity
+                                  key={label}
+                                  onPress={() => setInlineTaskDueDate(active ? null : value)}
+                                  style={[
+                                    styles.dateBtn,
+                                    {
+                                      flex: 0,
+                                      paddingHorizontal: 10,
+                                      backgroundColor: active ? colors.accent : colors.surfaceElevated,
+                                      borderColor: active ? colors.accent : colors.border,
+                                      borderRadius: radius.sm,
+                                    },
+                                  ]}
+                                >
+                                  <Text style={[styles.dateBtnText, { color: active ? '#fff' : colors.textSecondary }]}>
+                                    {label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                            <TouchableOpacity
+                              onPress={handleTaskDatePicker}
+                              style={[
+                                styles.dateBtn,
+                                {
+                                  flex: 0,
+                                  paddingHorizontal: 10,
+                                  backgroundColor: inlineTaskDueDate && inlineTaskDueDate !== getTodayString() && inlineTaskDueDate !== addDays(getTodayString(), 1) ? colors.accent : colors.surfaceElevated,
+                                  borderColor: inlineTaskDueDate && inlineTaskDueDate !== getTodayString() && inlineTaskDueDate !== addDays(getTodayString(), 1) ? colors.accent : colors.border,
+                                  borderRadius: radius.sm,
+                                },
+                              ]}
+                            >
+                              <Text style={[styles.dateBtnText, { color: inlineTaskDueDate && inlineTaskDueDate !== getTodayString() && inlineTaskDueDate !== addDays(getTodayString(), 1) ? '#fff' : colors.textSecondary }]}>
+                                {inlineTaskDueDate && inlineTaskDueDate !== getTodayString() && inlineTaskDueDate !== addDays(getTodayString(), 1) ? formatLongDate(inlineTaskDueDate) : 'Date…'}
+                              </Text>
+                            </TouchableOpacity>
+                            {inlineTaskDueDate && (
+                              <TouchableOpacity
+                                onPress={() => setInlineTaskDueDate(null)}
+                                style={{ justifyContent: 'center', paddingHorizontal: 4 }}
+                              >
+                                <Text style={{ color: colors.textTertiary, fontSize: 13 }}>✕</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         </View>
                       )}
                     </View>
@@ -685,8 +766,8 @@ const TemplatesScreen: React.FC = () => {
             </View>}
           </View>
 
-          {/* ── Saved recurring items list ── */}
-          {scheduleMode === 'recurring' && activeItems.length > 0 && (
+          {/* ── Saved recurring items list (all days) ── */}
+          {scheduleMode === 'recurring' && WEEK_DAYS.some((d) => weeklyTemplate[d].length > 0) && (
             <View>
               <Text
                 style={[
@@ -696,43 +777,59 @@ const TemplatesScreen: React.FC = () => {
               >
                 RECURRING ITEMS
               </Text>
-              {activeItems.map((item) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.itemRow,
-                    {
-                      backgroundColor: colors.surface,
-                      borderRadius: radius.md,
-                      marginBottom: spacing.xs,
-                      paddingHorizontal: spacing.md,
-                      paddingVertical: spacing.sm + 4,
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.itemContent}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title}</Text>
-                    {item.dueDate && (
-                      <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
-                        📅 {item.dueDate}
-                      </Text>
-                    )}
-                    {item.time && (
-                      <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
-                        ⏰ {item.time}
-                      </Text>
-                    )}
+              {WEEK_DAYS.map((day) => {
+                const items = weeklyTemplate[day];
+                if (items.length === 0) return null;
+                const dayLabel = DAY_CHIPS.find((c) => c.day === day)?.label ?? day;
+                return (
+                  <View key={day} style={{ marginBottom: spacing.sm }}>
+                    <Text style={[styles.savedLabel, { color: colors.accent, marginBottom: 4 }]}>
+                      {dayLabel}
+                    </Text>
+                    {items.map((item) => (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.itemRow,
+                          {
+                            backgroundColor: colors.surface,
+                            borderRadius: radius.md,
+                            marginBottom: spacing.xs,
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm + 4,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.itemContent}>
+                          <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title}</Text>
+                          {item.time && (
+                            <Text style={[styles.itemMeta, { color: colors.textTertiary }]}>
+                              ⏰ {item.time}
+                            </Text>
+                          )}
+                        </View>
+                        <TouchableOpacity
+                          onPress={() =>
+                            Alert.alert('Remove Item', `Remove "${item.title}"?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Remove',
+                                style: 'destructive',
+                                onPress: () => deleteTemplateItem(day, item.id),
+                              },
+                            ])
+                          }
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                          <Text style={[styles.deleteBtn, { color: colors.textTertiary }]}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                   </View>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(item)}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <Text style={[styles.deleteBtn, { color: colors.textTertiary }]}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 

@@ -40,6 +40,7 @@ export interface Task {
   completed: boolean;
   completedAt?: string;
   assignedDays: DayOfWeek[];
+  dueDate?: string; // "YYYY-MM-DD" – one-time due date for this task
   order: number;
   createdAt: string;
 }

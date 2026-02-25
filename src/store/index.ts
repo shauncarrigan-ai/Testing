@@ -64,7 +64,7 @@ interface AppState {
   deleteProject: (id: string) => void;
 
   // ── Task actions ──
-  addTask: (projectId: string, parentId: string | null, title: string) => Task;
+  addTask: (projectId: string, parentId: string | null, title: string, dueDate?: string) => Task;
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   toggleTask: (id: string) => void;
@@ -228,7 +228,7 @@ export const useStore = create<AppState>()(
 
       // ── Tasks ───────────────────────────────────────────────────────────────
 
-      addTask: (projectId, parentId, title) => {
+      addTask: (projectId, parentId, title, dueDate) => {
         const state = get();
         const parent = parentId
           ? state.tasks.find((t) => t.id === parentId) ?? null
@@ -248,6 +248,7 @@ export const useStore = create<AppState>()(
           title: title.trim(),
           completed: false,
           assignedDays: [],
+          dueDate,
           order: siblings.length,
           createdAt: new Date().toISOString(),
         };
@@ -311,7 +312,7 @@ export const useStore = create<AppState>()(
         const templateItems = s.weeklyTemplate[dow];
         const oneTimeForDate = s.oneTimeItems.filter((ti) => ti.dueDate === date);
         const assignedTasks = s.tasks.filter(
-          (t) => t.assignedDays.includes(dow) && !t.completed
+          (t) => !t.completed && (t.assignedDays.includes(dow) || t.dueDate === date)
         );
 
         const newItems: DailyItem[] = [];
