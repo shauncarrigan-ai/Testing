@@ -81,8 +81,10 @@ const TemplatesScreen: React.FC = () => {
   const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
   const addProject = useStore((s) => s.addProject);
   const updateProject = useStore((s) => s.updateProject);
+  const deleteProject = useStore((s) => s.deleteProject);
   const tasks = useStore((s) => s.tasks);
   const addTask = useStore((s) => s.addTask);
+  const deleteTask = useStore((s) => s.deleteTask);
 
   const activeProjects = projects.filter((p) => !p.archived);
   const recurringItems = weeklyTemplate[todayDow];
@@ -232,6 +234,39 @@ const TemplatesScreen: React.FC = () => {
     if (!title || !focusedProjectId) return;
     addTask(focusedProjectId, null, title);
     setInlineTaskTitle('');
+  };
+
+  const handleDeleteProject = (projectId: string, projectTitle: string) => {
+    Alert.alert(
+      'Delete Project',
+      `Delete "${projectTitle}" and all its tasks?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (focusedProjectId === projectId) setFocusedProjectId(null);
+            deleteProject(projectId);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteTask = (taskId: string, taskTitle: string) => {
+    Alert.alert(
+      'Delete Task',
+      `Delete "${taskTitle}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteTask(taskId),
+        },
+      ]
+    );
   };
 
   const canAdd =
@@ -499,9 +534,16 @@ const TemplatesScreen: React.FC = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => navigation.navigate('ProjectDetail', { projectId: proj.id })}
-                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                         >
                           <Text style={{ color: colors.textTertiary, fontSize: 18, fontWeight: '300' }}>›</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteProject(proj.id, proj.title)}
+                          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                          style={{ paddingLeft: 6 }}
+                        >
+                          <Text style={{ color: colors.textTertiary, fontSize: 15 }}>✕</Text>
                         </TouchableOpacity>
                       </View>
                       {isFocused && (
@@ -510,6 +552,12 @@ const TemplatesScreen: React.FC = () => {
                             <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 6 }}>
                               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textTertiary }} />
                               <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>{task.title}</Text>
+                              <TouchableOpacity
+                                onPress={() => handleDeleteTask(task.id, task.title)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Text style={{ color: colors.textTertiary, fontSize: 13 }}>✕</Text>
+                              </TouchableOpacity>
                             </View>
                           ))}
                           <View style={[styles.addRow, { marginTop: 4 }]}>

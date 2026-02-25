@@ -214,6 +214,7 @@ const CalendarScreen: React.FC = () => {
     }
   };
 
+  // contentContainerStyle already applies spacing.md padding on each side
   const cellSize = Math.floor((Dimensions.get('window').width - spacing.md * 2) / 7);
 
   const renderCalendarCell = (dateStr: string | null, idx: number) => {
@@ -355,7 +356,7 @@ const CalendarScreen: React.FC = () => {
   const CalendarHeader = (
     <View>
       {/* Month navigation */}
-      <View style={[styles.monthNav, { paddingHorizontal: spacing.md }]}>
+      <View style={[styles.monthNav]}>
         <TouchableOpacity onPress={goToPrevMonth} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[styles.navArrow, { color: colors.accent }]}>‹</Text>
         </TouchableOpacity>
@@ -375,7 +376,7 @@ const CalendarScreen: React.FC = () => {
       </View>
 
       {/* Day-of-week headers */}
-      <View style={[styles.dowRow, { paddingHorizontal: spacing.md }]}>
+      <View style={[styles.dowRow]}>
         {DOW_HEADERS.map((d, i) => (
           <View key={i} style={{ width: cellSize, alignItems: 'center' }}>
             <Text style={[styles.dowLabel, { color: colors.textTertiary }]}>{d}</Text>
@@ -384,12 +385,7 @@ const CalendarScreen: React.FC = () => {
       </View>
 
       {/* Calendar grid */}
-      <View
-        style={[
-          styles.grid,
-          { paddingHorizontal: spacing.md, marginBottom: spacing.md },
-        ]}
-      >
+      <View style={[styles.grid, { marginBottom: spacing.md }]}>
         {cells.map((dateStr, idx) => renderCalendarCell(dateStr, idx))}
       </View>
 
@@ -399,7 +395,6 @@ const CalendarScreen: React.FC = () => {
           styles.divider,
           {
             borderTopColor: colors.separator,
-            paddingHorizontal: spacing.md,
             paddingTop: spacing.sm,
             paddingBottom: spacing.xs,
             backgroundColor: colors.background,

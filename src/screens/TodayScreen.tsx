@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Animated,
 } from 'react-native';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -77,7 +78,9 @@ const TodayScreen: React.FC = () => {
   const [localOrder, setLocalOrder] = useState<string[]>([]);
   const localOrderRef = useRef<string[]>([]);
   const dragStartIdx = useRef(0);
-  const lastSwapIdx = useRef(0);
+  const lastDyRef = useRef(0);
+  // Animated value drives the floating translateY of the dragged item
+  const ghostAnim = useRef(new Animated.Value(0)).current;
 
   // Keep localOrder in sync with store when not dragging
   useEffect(() => {
@@ -108,32 +111,33 @@ const TodayScreen: React.FC = () => {
     const idx = localOrderRef.current.indexOf(id);
     const safeIdx = idx >= 0 ? idx : 0;
     dragStartIdx.current = safeIdx;
-    lastSwapIdx.current = safeIdx;
+    lastDyRef.current = 0;
+    ghostAnim.setValue(0);
     setActiveDragId(id);
-  }, []);
+  }, [ghostAnim]);
 
+  // Item floats with finger; no live reorder — we commit on release
   const handleDragMove = useCallback((dy: number) => {
-    const targetIdx =
-      Math.round(dy / ITEM_H) + dragStartIdx.current;
+    lastDyRef.current = dy;
+    ghostAnim.setValue(dy);
+  }, [ghostAnim]);
+
+  const handleDragEnd = useCallback(() => {
+    const dy = lastDyRef.current;
+    const targetIdx = Math.round(dy / ITEM_H) + dragStartIdx.current;
     const clamped = Math.max(
       0,
       Math.min(localOrderRef.current.length - 1, targetIdx)
     );
-    if (clamped !== lastSwapIdx.current) {
-      const newOrder = [...localOrderRef.current];
-      const movedId = newOrder[lastSwapIdx.current];
-      newOrder.splice(lastSwapIdx.current, 1);
-      newOrder.splice(clamped, 0, movedId);
-      lastSwapIdx.current = clamped;
-      localOrderRef.current = newOrder;
-      setLocalOrder([...newOrder]);
-    }
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    reorderDailyItems(today, localOrderRef.current);
+    const newOrder = [...localOrderRef.current];
+    const movedId = newOrder.splice(dragStartIdx.current, 1)[0];
+    newOrder.splice(clamped, 0, movedId);
+    localOrderRef.current = newOrder;
+    ghostAnim.setValue(0);
+    setLocalOrder([...newOrder]);
+    reorderDailyItems(today, newOrder);
     setActiveDragId(null);
-  }, [reorderDailyItems, today]);
+  }, [ghostAnim, reorderDailyItems, today]);
 
   // ── Project color lookup ───────────────────────────────────────────────────
   const getProjectColor = useCallback(
@@ -255,28 +259,14 @@ const TodayScreen: React.FC = () => {
             const isDragging = item.id === activeDragId;
             const effectiveCompleted =
               item.completed || optimisticCompleted.has(item.id);
-            return (
-              <View
-                key={item.id}
-                style={[
-                  styles.draggableRow,
-                  isDragging && {
-                    backgroundColor: colors.surfaceElevated,
-                    borderRadius: radius.md,
-                    opacity: 0.85,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: 8,
-                    elevation: 4,
-                  },
-                ]}
-              >
+
+            const rowContent = (
+              <>
                 <DragHandle
                   onDragStart={() => handleDragStart(item.id)}
                   onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
-                  color={colors.textTertiary}
+                  color={isDragging ? colors.accent : colors.textTertiary}
                 />
                 <View style={{ flex: 1 }}>
                   <CheckItem
@@ -294,6 +284,36 @@ const TodayScreen: React.FC = () => {
                     onLongPress={() => handleLongPress(item)}
                   />
                 </View>
+              </>
+            );
+
+            if (isDragging) {
+              return (
+                <Animated.View
+                  key={item.id}
+                  style={[
+                    styles.draggableRow,
+                    {
+                      transform: [{ translateY: ghostAnim }],
+                      backgroundColor: colors.surface,
+                      borderRadius: radius.md,
+                      zIndex: 10,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 8 },
+                      shadowOpacity: 0.18,
+                      shadowRadius: 14,
+                      elevation: 8,
+                    },
+                  ]}
+                >
+                  {rowContent}
+                </Animated.View>
+              );
+            }
+
+            return (
+              <View key={item.id} style={styles.draggableRow}>
+                {rowContent}
               </View>
             );
           })}
