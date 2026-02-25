@@ -67,18 +67,14 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
               onPress={onPress}
               style={[
                 tabStyles.tab,
-                route.name === 'Settings'
-                  ? { width: 38 }
-                  : { flex: 2 },
+                { flex: route.name === 'Settings' ? 1 : 2 },
               ]}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
               accessibilityLabel={options.tabBarAccessibilityLabel}
             >
               {icon}
-              {route.name !== 'Settings' && (
-                <Text style={[tabStyles.label, { color }]}>{label}</Text>
-              )}
+              <Text style={[tabStyles.label, { color, fontSize: route.name === 'Settings' ? 8 : 10 }]}>{label}</Text>
             </TouchableOpacity>
             {!isLast && (
               <View
@@ -156,7 +152,7 @@ const MainTabs: React.FC = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 13, color }}>⚙</Text>
+            <Text style={{ fontSize: 15, color }}>⚙</Text>
           ),
         }}
       />
