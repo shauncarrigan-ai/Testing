@@ -124,11 +124,7 @@ const TemplatesScreen: React.FC = () => {
 
   const toggleDay = (d: DayOfWeek) => {
     setSelectedDays((prev) =>
-      prev.includes(d)
-        ? prev.length === 1
-          ? prev
-          : prev.filter((x) => x !== d)
-        : [...prev, d]
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
     );
   };
 
@@ -192,6 +188,14 @@ const TemplatesScreen: React.FC = () => {
       setDueDate(getTodayString());
       setDateMode('today');
     } else if (scheduleMode === 'recurring') {
+      if (selectedDays.length === 0) {
+        Alert.alert(
+          'No Day Selected',
+          'Please choose at least one day of the week before adding.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
       selectedDays.forEach((d) => {
         addTemplateItem(d, trimmed, timeVal);
       });
@@ -414,8 +418,8 @@ const TemplatesScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Separator */}
-            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginVertical: spacing.sm }} />
+            {/* Separator — visually distinct break between mode buttons and controls */}
+            <View style={{ height: 1.5, backgroundColor: colors.border, marginTop: spacing.md + 2, marginBottom: spacing.md, marginHorizontal: -spacing.md }} />
 
             {/* Date (one-time) or Day chips (recurring) or Project picker (project) */}
             {scheduleMode === 'one-time' ? (
@@ -698,8 +702,8 @@ const TemplatesScreen: React.FC = () => {
             </View>}
           </View>
 
-          {/* ── Saved items list (one-time / recurring) ── */}
-          {(scheduleMode === 'one-time' || scheduleMode === 'recurring') && activeItems.length > 0 && (
+          {/* ── Saved recurring items list ── */}
+          {scheduleMode === 'recurring' && activeItems.length > 0 && (
             <View>
               <Text
                 style={[
@@ -707,7 +711,7 @@ const TemplatesScreen: React.FC = () => {
                   { color: colors.textTertiary, marginBottom: spacing.sm },
                 ]}
               >
-                {scheduleMode === 'one-time' ? 'ONE-TIME ITEMS' : 'RECURRING ITEMS'}
+                RECURRING ITEMS
               </Text>
               {activeItems.map((item) => (
                 <View
