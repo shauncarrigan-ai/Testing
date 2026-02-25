@@ -80,6 +80,7 @@ const TemplatesScreen: React.FC = () => {
   const addOneTimeItem = useStore((s) => s.addOneTimeItem);
   const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
   const addProject = useStore((s) => s.addProject);
+  const updateProject = useStore((s) => s.updateProject);
   const tasks = useStore((s) => s.tasks);
   const addTask = useStore((s) => s.addTask);
 
@@ -106,6 +107,7 @@ const TemplatesScreen: React.FC = () => {
   const [inlineProjectName, setInlineProjectName] = useState('');
   const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
   const [inlineTaskTitle, setInlineTaskTitle] = useState('');
+  const [colorPickerProjectId, setColorPickerProjectId] = useState<string | null>(null);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -222,6 +224,7 @@ const TemplatesScreen: React.FC = () => {
     setInlineProjectName('');
     setInlineAddingProject(false);
     setFocusedProjectId(project.id);
+    setColorPickerProjectId(project.id);
   };
 
   const handleAddInlineTask = () => {
@@ -416,14 +419,17 @@ const TemplatesScreen: React.FC = () => {
                 )}
               </View>
             ) : scheduleMode === 'recurring' ? (
-              <View style={[styles.fieldRow, { marginBottom: spacing.sm, alignItems: 'flex-start' }]}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, paddingTop: 7 }]}>Repeat</Text>
-                <View style={styles.dayChipsWrap}>
+              <View style={{ marginBottom: spacing.sm }}>
+                {/* Row 1: "Every day" toggle */}
+                <View style={[styles.fieldRow, { marginBottom: 6 }]}>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Repeat</Text>
                   <TouchableOpacity
                     onPress={toggleAll}
                     style={[
                       styles.dayChip,
                       {
+                        flex: 1,
+                        justifyContent: 'center',
                         backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
                         borderColor: allSelected ? colors.accent : colors.border,
                         borderRadius: radius.sm,
@@ -434,6 +440,9 @@ const TemplatesScreen: React.FC = () => {
                       Every day
                     </Text>
                   </TouchableOpacity>
+                </View>
+                {/* Row 2: individual day chips, all on one line */}
+                <View style={{ flexDirection: 'row', gap: 4 }}>
                   {DAY_CHIPS.map(({ label, day: d }) => {
                     const active = selectedDays.includes(d) && !allSelected;
                     return (
@@ -443,6 +452,9 @@ const TemplatesScreen: React.FC = () => {
                         style={[
                           styles.dayChip,
                           {
+                            flex: 1,
+                            justifyContent: 'center',
+                            paddingHorizontal: 0,
                             backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
                             borderColor: active ? colors.accent : colors.border,
                             borderRadius: radius.sm,
@@ -694,6 +706,64 @@ const TemplatesScreen: React.FC = () => {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Color Picker Modal ── */}
+      <Modal
+        visible={colorPickerProjectId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setColorPickerProjectId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.colorPickerCard,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.colorPickerTitle, { color: colors.text }]}>
+              Pick a color
+            </Text>
+            <View style={styles.colorSwatchGrid}>
+              {PROJECT_COLORS.map((c) => {
+                const currentColor = activeProjects.find((p) => p.id === colorPickerProjectId)?.color;
+                const isSelected = currentColor === c;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => {
+                      if (colorPickerProjectId) {
+                        updateProject(colorPickerProjectId, { color: c });
+                        setColorPickerProjectId(null);
+                      }
+                    }}
+                    style={[
+                      styles.colorSwatch,
+                      {
+                        backgroundColor: c,
+                        borderWidth: isSelected ? 3 : 0,
+                        borderColor: '#fff',
+                        transform: [{ scale: isSelected ? 1.15 : 1 }],
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              onPress={() => setColorPickerProjectId(null)}
+              style={{ marginTop: 16, alignItems: 'center' }}
+            >
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Skip</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Date Picker Calendar Modal ── */}
       <Modal
@@ -959,6 +1029,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
+  },
+  // Color picker modal
+  colorPickerCard: {
+    padding: 24,
+    margin: 32,
+  },
+  colorPickerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  colorSwatchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    justifyContent: 'center',
+  },
+  colorSwatch: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   // Calendar modal
   modalOverlay: {

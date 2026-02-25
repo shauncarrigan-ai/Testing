@@ -52,6 +52,7 @@ interface AppState {
   addTemplateItem: (day: DayOfWeek, title: string, time?: string) => void;
   updateTemplateItem: (day: DayOfWeek, id: string, updates: Partial<TemplateItem>) => void;
   deleteTemplateItem: (day: DayOfWeek, id: string) => void;
+  skipTemplateItemForDate: (day: DayOfWeek, id: string, date: string) => void;
   reorderTemplateItems: (day: DayOfWeek, items: TemplateItem[]) => void;
   addOneTimeItem: (title: string, dueDate: string, time?: string) => void;
   deleteOneTimeItem: (id: string) => void;
@@ -130,6 +131,24 @@ export const useStore = create<AppState>()(
             [day]: s.weeklyTemplate[day]
               .filter((item) => item.id !== id)
               .map((item, i) => ({ ...item, order: i })),
+          },
+        }));
+      },
+
+      skipTemplateItemForDate: (day, id, date) => {
+        set((s) => ({
+          weeklyTemplate: {
+            ...s.weeklyTemplate,
+            [day]: s.weeklyTemplate[day].map((item) =>
+              item.id === id
+                ? { ...item, skippedDates: [...(item.skippedDates ?? []), date] }
+                : item
+            ),
+          },
+          // Also remove from dailyItems for that date if already generated
+          dailyItems: {
+            ...s.dailyItems,
+            [date]: (s.dailyItems[date] ?? []).filter((it) => it.templateItemId !== id),
           },
         }));
       },

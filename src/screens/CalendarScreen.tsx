@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
@@ -44,9 +45,11 @@ type ScheduleItem = {
   id: string;
   title: string;
   time?: string;
-  kind: 'routine' | 'task';
+  kind: 'recurring' | 'project' | 'one-time' | 'rollover';
   color?: string;
   completed?: boolean;
+  templateItemId?: string; // for recurring and one-time deletion
+  taskId?: string;         // for project task deletion
 };
 
 type CompletionStatus = 'none' | 'partial' | 'complete';
@@ -57,8 +60,13 @@ const CalendarScreen: React.FC = () => {
   const { colors, spacing, radius, isDark } = useTheme();
   const dailyItems = useStore((s) => s.dailyItems);
   const weeklyTemplate = useStore((s) => s.weeklyTemplate);
+  const oneTimeItems = useStore((s) => s.oneTimeItems);
   const tasks = useStore((s) => s.tasks);
   const projects = useStore((s) => s.projects);
+  const deleteOneTimeItem = useStore((s) => s.deleteOneTimeItem);
+  const deleteTemplateItem = useStore((s) => s.deleteTemplateItem);
+  const deleteTask = useStore((s) => s.deleteTask);
+  const skipTemplateItemForDate = useStore((s) => s.skipTemplateItemForDate);
 
   const todayStr = getTodayString();
   const todayDate = parseDate(todayStr);
@@ -108,13 +116,18 @@ const CalendarScreen: React.FC = () => {
   const selectedItems = useMemo<ScheduleItem[]>(() => {
     const dow = getDayOfWeek(selectedDate);
 
-    const templateItems: ScheduleItem[] = weeklyTemplate[dow].map((ti) => ({
-      id: `t-${ti.id}`,
-      title: ti.title,
-      time: ti.time,
-      kind: 'routine',
-    }));
+    // Recurring template items (skip dates honoured)
+    const templateItems: ScheduleItem[] = weeklyTemplate[dow]
+      .filter((ti) => !ti.skippedDates?.includes(selectedDate))
+      .map((ti) => ({
+        id: `t-${ti.id}`,
+        title: ti.title,
+        time: ti.time,
+        kind: 'recurring',
+        templateItemId: ti.id,
+      }));
 
+    // Project task items assigned to this day-of-week
     const taskItems: ScheduleItem[] = tasks
       .filter((t) => t.assignedDays.includes(dow) && t.level === 0)
       .map((t) => {
@@ -122,30 +135,84 @@ const CalendarScreen: React.FC = () => {
         return {
           id: `tk-${t.id}`,
           title: t.title,
-          kind: 'task',
+          kind: 'project',
           color: project?.color,
           completed: t.completed,
+          taskId: t.id,
         };
       });
 
-    // Also include any manual daily items from completed/checked items
+    // One-time items due on this specific date
+    const oneTimeForDate = oneTimeItems.filter((ti) => ti.dueDate === selectedDate);
+    const oneTimeScheduleItems: ScheduleItem[] = oneTimeForDate.map((ti) => ({
+      id: `ot-${ti.id}`,
+      title: ti.title,
+      time: ti.time,
+      kind: 'one-time',
+      templateItemId: ti.id,
+    }));
+
+    // Rollover items already in dailyItems
     const stored = dailyItems[selectedDate] ?? [];
-    const manualItems: ScheduleItem[] = stored
-      .filter(
-        (it) =>
-          it.source === 'rollover' ||
-          (!templateItems.some((ti) => ti.id === `t-${it.templateItemId}`) &&
-            !taskItems.some((tk) => tk.id === `tk-${it.taskId}`))
-      )
+    const rolledItems: ScheduleItem[] = stored
+      .filter((it) => it.source === 'rollover')
       .map((it) => ({
         id: `s-${it.id}`,
         title: it.title,
-        kind: 'routine' as const,
+        kind: 'rollover',
         completed: it.completed,
       }));
 
-    return [...templateItems, ...taskItems, ...manualItems];
-  }, [selectedDate, weeklyTemplate, tasks, projects, dailyItems]);
+    return [...templateItems, ...taskItems, ...oneTimeScheduleItems, ...rolledItems];
+  }, [selectedDate, weeklyTemplate, tasks, projects, dailyItems, oneTimeItems]);
+
+  const handleDeleteItem = (item: ScheduleItem) => {
+    const dow = getDayOfWeek(selectedDate);
+    if (item.kind === 'recurring') {
+      Alert.alert(
+        'Delete Recurring Item',
+        `"${item.title}"`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'This day only',
+            onPress: () => {
+              if (item.templateItemId) {
+                skipTemplateItemForDate(dow, item.templateItemId, selectedDate);
+              }
+            },
+          },
+          {
+            text: 'All future days',
+            style: 'destructive',
+            onPress: () => {
+              if (item.templateItemId) {
+                deleteTemplateItem(dow, item.templateItemId);
+              }
+            },
+          },
+        ]
+      );
+    } else if (item.kind === 'one-time') {
+      Alert.alert('Delete Item', `Delete "${item.title}"?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => { if (item.templateItemId) deleteOneTimeItem(item.templateItemId); },
+        },
+      ]);
+    } else if (item.kind === 'project') {
+      Alert.alert('Delete Task', `Delete "${item.title}"?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => { if (item.taskId) deleteTask(item.taskId); },
+        },
+      ]);
+    }
+  };
 
   const cellSize = Math.floor((Dimensions.get('window').width - spacing.md * 2) / 7);
 
@@ -209,50 +276,70 @@ const CalendarScreen: React.FC = () => {
     );
   };
 
-  const renderItem = ({ item }: { item: ScheduleItem }) => (
-    <View
-      style={[
-        styles.row,
-        {
-          backgroundColor: colors.surface,
-          borderRadius: radius.md,
-          marginBottom: spacing.xs,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm + 4,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          opacity: item.completed ? 0.45 : 1,
-        },
-      ]}
-    >
-      {item.color && (
-        <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-      )}
-      <View style={{ flex: 1 }}>
-        <Text
-          style={[
-            styles.rowTitle,
-            {
-              color: colors.text,
-              textDecorationLine: item.completed ? 'line-through' : 'none',
-            },
-          ]}
-        >
-          {item.title}
-        </Text>
-        {item.time && (
-          <Text style={[styles.rowTime, { color: colors.textTertiary }]}>
-            ⏰ {item.time}
+  const BADGE_CONFIG: Record<ScheduleItem['kind'], { label: string; bg: string; fg: string }> = {
+    recurring:  { label: 'Recurring', bg: colors.accentLight,  fg: colors.accent },
+    project:    { label: 'Project',   bg: colors.surfaceElevated, fg: colors.textSecondary },
+    'one-time': { label: 'One Time',  bg: colors.warningLight, fg: colors.warning },
+    rollover:   { label: 'Rollover',  bg: colors.rollover,     fg: colors.rolloverBorder },
+  };
+
+  const renderItem = ({ item }: { item: ScheduleItem }) => {
+    const badge = BADGE_CONFIG[item.kind];
+    const canDelete = item.kind !== 'rollover';
+    return (
+      <View
+        style={[
+          styles.row,
+          {
+            backgroundColor: colors.surface,
+            borderRadius: radius.md,
+            marginBottom: spacing.xs,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm + 4,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+            opacity: item.completed ? 0.45 : 1,
+          },
+        ]}
+      >
+        {item.color && (
+          <View style={[styles.colorDot, { backgroundColor: item.color }]} />
+        )}
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[
+              styles.rowTitle,
+              {
+                color: colors.text,
+                textDecorationLine: item.completed ? 'line-through' : 'none',
+              },
+            ]}
+          >
+            {item.title}
           </Text>
+          {item.time && (
+            <Text style={[styles.rowTime, { color: colors.textTertiary }]}>
+              ⏰ {item.time}
+            </Text>
+          )}
+        </View>
+        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.badgeText, { color: badge.fg }]}>
+            {badge.label}
+          </Text>
+        </View>
+        {canDelete && (
+          <TouchableOpacity
+            onPress={() => handleDeleteItem(item)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{ marginLeft: 8 }}
+          >
+            <Text style={{ color: colors.textTertiary, fontSize: 16, lineHeight: 20 }}>✕</Text>
+          </TouchableOpacity>
         )}
       </View>
-      <View style={[styles.badge, { backgroundColor: colors.surfaceElevated }]}>
-        <Text style={[styles.badgeText, { color: colors.textTertiary }]}>
-          {item.kind}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const isCurrentMonthView =
     viewYear === todayDate.getFullYear() && viewMonth === todayDate.getMonth();

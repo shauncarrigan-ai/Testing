@@ -13,6 +13,7 @@ export interface TemplateItem {
   time?: string; // "HH:MM" – optional per-item reminder
   order: number;
   dueDate?: string; // "YYYY-MM-DD" – if set, this is a one-time item (not recurring)
+  skippedDates?: string[]; // "YYYY-MM-DD" dates where this recurring item is skipped
 }
 
 export type WeeklyTemplate = Record<DayOfWeek, TemplateItem[]>;
