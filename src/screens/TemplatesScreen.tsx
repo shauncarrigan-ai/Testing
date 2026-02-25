@@ -509,6 +509,62 @@ const TemplatesScreen: React.FC = () => {
             ) : (
               /* ── Project mode ── inline project + task creation ── */
               <View>
+                {inlineAddingProject ? (
+                  <View style={[styles.addRow, { marginBottom: 8 }]}>
+                    <TextInput
+                      value={inlineProjectName}
+                      onChangeText={setInlineProjectName}
+                      placeholder="Project name…"
+                      placeholderTextColor={colors.textTertiary}
+                      style={[
+                        styles.timeInput,
+                        {
+                          flex: 1,
+                          backgroundColor: colors.surfaceElevated,
+                          color: colors.text,
+                          borderRadius: radius.sm,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      returnKeyType="done"
+                      onSubmitEditing={handleInlineCreateProject}
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={handleInlineCreateProject}
+                      disabled={!inlineProjectName.trim()}
+                      style={[
+                        styles.addButton,
+                        {
+                          backgroundColor: inlineProjectName.trim() ? colors.accent : colors.border,
+                          borderRadius: radius.sm,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.addButtonText}>Add</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setInlineAddingProject(false); setInlineProjectName(''); }}
+                      style={{ paddingHorizontal: 8, height: 40, justifyContent: 'center' }}
+                    >
+                      <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setInlineAddingProject(true)}
+                    style={[
+                      styles.newProjectBtn,
+                      {
+                        borderColor: colors.border,
+                        borderRadius: radius.sm,
+                        marginBottom: 8,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.newProjectBtnText, { color: colors.accent }]}>+ New Project</Text>
+                  </TouchableOpacity>
+                )}
                 {activeProjects.map((proj) => {
                   const isFocused = focusedProjectId === proj.id;
                   const projTasks = tasks.filter(
@@ -608,84 +664,11 @@ const TemplatesScreen: React.FC = () => {
                     No projects yet.
                   </Text>
                 )}
-                {inlineAddingProject ? (
-                  <View style={[styles.addRow, { marginBottom: 4 }]}>
-                    <TextInput
-                      value={inlineProjectName}
-                      onChangeText={setInlineProjectName}
-                      placeholder="Project name…"
-                      placeholderTextColor={colors.textTertiary}
-                      style={[
-                        styles.timeInput,
-                        {
-                          flex: 1,
-                          backgroundColor: colors.surfaceElevated,
-                          color: colors.text,
-                          borderRadius: radius.sm,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      returnKeyType="done"
-                      onSubmitEditing={handleInlineCreateProject}
-                      autoFocus
-                    />
-                    <TouchableOpacity
-                      onPress={handleInlineCreateProject}
-                      disabled={!inlineProjectName.trim()}
-                      style={[
-                        styles.addButton,
-                        {
-                          backgroundColor: inlineProjectName.trim() ? colors.accent : colors.border,
-                          borderRadius: radius.sm,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.addButtonText}>Add</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => { setInlineAddingProject(false); setInlineProjectName(''); }}
-                      style={{ paddingHorizontal: 8, height: 40, justifyContent: 'center' }}
-                    >
-                      <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => setInlineAddingProject(true)}
-                    style={[
-                      styles.newProjectBtn,
-                      {
-                        borderColor: colors.border,
-                        borderRadius: radius.sm,
-                        marginTop: 4,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.newProjectBtnText, { color: colors.accent }]}>+ New Project</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             )}
 
-            {/* Optional time + Add button — hidden in project mode */}
+            {/* Add button — hidden in project mode */}
             {scheduleMode !== 'project' && <View style={styles.addRow}>
-              <TextInput
-                value={newTime}
-                onChangeText={setNewTime}
-                placeholder="Time (optional)"
-                placeholderTextColor={colors.textTertiary}
-                style={[
-                  styles.timeInput,
-                  {
-                    backgroundColor: colors.surfaceElevated,
-                    color: colors.text,
-                    borderRadius: radius.sm,
-                    borderColor: colors.border,
-                  },
-                ]}
-                keyboardType="numbers-and-punctuation"
-                maxLength={5}
-              />
               <TouchableOpacity
                 onPress={handleAdd}
                 disabled={!canAdd}
