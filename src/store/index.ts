@@ -75,6 +75,7 @@ interface AppState {
   toggleDailyItem: (date: string, itemId: string) => void;
   processRollover: (fromDate: string, toDate: string) => void;
   syncTaskCompletionToDailyItems: (taskId: string, completed: boolean, date: string) => void;
+  reorderDailyItems: (date: string, orderedIds: string[]) => void;
 
   // ── Settings ──
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -132,6 +133,12 @@ export const useStore = create<AppState>()(
               .filter((item) => item.id !== id)
               .map((item, i) => ({ ...item, order: i })),
           },
+          dailyItems: Object.fromEntries(
+            Object.entries(s.dailyItems).map(([date, items]) => [
+              date,
+              items.filter((it) => it.templateItemId !== id),
+            ])
+          ),
         }));
       },
 
@@ -445,6 +452,25 @@ export const useStore = create<AppState>()(
                 it.taskId === taskId ? { ...it, completed } : it
               ),
             },
+          };
+        });
+      },
+
+      reorderDailyItems: (date, orderedIds) => {
+        set((s) => {
+          const items = s.dailyItems[date] ?? [];
+          const idToItem = new Map(items.map((it) => [it.id, it]));
+          const reordered = orderedIds
+            .map((id, i) => {
+              const it = idToItem.get(id);
+              return it ? { ...it, order: i } : null;
+            })
+            .filter(Boolean) as DailyItem[];
+          const rest = items
+            .filter((it) => !orderedIds.includes(it.id))
+            .map((it, i) => ({ ...it, order: orderedIds.length + i }));
+          return {
+            dailyItems: { ...s.dailyItems, [date]: [...reordered, ...rest] },
           };
         });
       },

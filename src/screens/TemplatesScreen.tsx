@@ -420,50 +420,47 @@ const TemplatesScreen: React.FC = () => {
               </View>
             ) : scheduleMode === 'recurring' ? (
               <View style={{ marginBottom: spacing.sm }}>
-                {/* Row 1: "Every day" toggle */}
-                <View style={[styles.fieldRow, { marginBottom: 6 }]}>
-                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Repeat</Text>
-                  <TouchableOpacity
-                    onPress={toggleAll}
-                    style={[
-                      styles.dayChip,
-                      {
-                        flex: 1,
-                        justifyContent: 'center',
-                        backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
-                        borderColor: allSelected ? colors.accent : colors.border,
-                        borderRadius: radius.sm,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.dayChipText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
-                      Every day
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                {/* Row 2: individual day chips, all on one line */}
-                <View style={{ flexDirection: 'row', gap: 4 }}>
+                {/* Every day pill */}
+                <TouchableOpacity
+                  onPress={toggleAll}
+                  style={[
+                    styles.everydayPill,
+                    {
+                      backgroundColor: allSelected ? colors.accent : colors.surfaceElevated,
+                      borderColor: allSelected ? colors.accent : colors.border,
+                      borderRadius: radius.md,
+                      marginBottom: 12,
+                    },
+                  ]}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.everydayPillText, { color: allSelected ? '#fff' : colors.textSecondary }]}>
+                    Every day
+                  </Text>
+                  {allSelected && (
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>✓</Text>
+                  )}
+                </TouchableOpacity>
+                {/* Circular day buttons */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   {DAY_CHIPS.map(({ label, day: d }) => {
                     const active = selectedDays.includes(d) && !allSelected;
                     return (
                       <TouchableOpacity
                         key={d}
                         onPress={() => !allSelected && toggleDay(d)}
+                        activeOpacity={0.75}
                         style={[
-                          styles.dayChip,
+                          styles.dayCircle,
                           {
-                            flex: 1,
-                            justifyContent: 'center',
-                            paddingHorizontal: 0,
-                            backgroundColor: active ? colors.accentLight : colors.surfaceElevated,
+                            backgroundColor: active ? colors.accent : 'transparent',
                             borderColor: active ? colors.accent : colors.border,
-                            borderRadius: radius.sm,
-                            opacity: allSelected ? 0.4 : 1,
+                            opacity: allSelected ? 0.35 : 1,
                           },
                         ]}
                       >
-                        <Text style={[styles.dayChipText, { color: active ? colors.accent : colors.textSecondary }]}>
-                          {label}
+                        <Text style={[styles.dayCircleText, { color: active ? '#fff' : colors.textSecondary }]}>
+                          {label[0]}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -952,6 +949,30 @@ const styles = StyleSheet.create({
   dayChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  everydayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderWidth: 1.5,
+  },
+  everydayPillText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dayCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircleText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   // Project mode
   projectRow: {

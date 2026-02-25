@@ -74,6 +74,5 @@ export const PROJECT_COLORS = [
   '#EA580C',
   '#CA8A04',
   '#16A34A',
-  '#0891B2',
-  '#0284C7',
+  '#0D9488',
 ];

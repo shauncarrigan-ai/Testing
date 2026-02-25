@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -21,6 +21,7 @@ import {
   formatLongDate,
 } from '../utils/dateUtils';
 import CheckItem from '../components/CheckItem';
+import DragHandle from '../components/DragHandle';
 import ProgressBar from '../components/ProgressBar';
 import EmptyState from '../components/EmptyState';
 import { DailyItem, RootStackParamList, MainTabParamList } from '../types';
@@ -30,11 +31,7 @@ type Nav = CompositeNavigationProp<
   StackNavigationProp<RootStackParamList>
 >;
 
-// ─── Section list helpers ─────────────────────────────────────────────────────
-
-type ListRow =
-  | { kind: 'section'; id: string; title: string; count: number }
-  | { kind: 'item'; id: string; item: DailyItem };
+const ITEM_H = 64;
 
 const TodayScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
@@ -47,6 +44,7 @@ const TodayScreen: React.FC = () => {
     toggleDailyItem,
     processRollover,
     lastProcessedDate,
+    reorderDailyItems,
   } = useStore();
 
   const today = getTodayString();
@@ -74,35 +72,70 @@ const TodayScreen: React.FC = () => {
   const completed = todayItems.filter((i) => i.completed).length;
   const progress = total > 0 ? completed / total : 0;
 
-  // ── Build section list ─────────────────────────────────────────────────────
-  const listData = useMemo<ListRow[]>(() => {
-    const incomplete = (items: typeof todayItems) => items.filter((i) => !i.completed);
+  // ── Drag state ─────────────────────────────────────────────────────────────
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [localOrder, setLocalOrder] = useState<string[]>([]);
+  const localOrderRef = useRef<string[]>([]);
+  const dragStartIdx = useRef(0);
+  const lastSwapIdx = useRef(0);
 
-    const rolled = incomplete(todayItems.filter((i) => i.source === 'rollover'));
-    const template = incomplete(todayItems.filter((i) => i.source === 'template'));
-    const tasks = incomplete(todayItems.filter((i) => i.source === 'project_task'));
-    const completedItems = todayItems.filter((i) => i.completed);
-
-    const rows: ListRow[] = [];
-
-    // Template items shown first with no section header
-    template.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
-    if (tasks.length) {
-      rows.push({ kind: 'section', id: 'h-tasks', title: 'Projects', count: tasks.length });
-      tasks.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
+  // Keep localOrder in sync with store when not dragging
+  useEffect(() => {
+    if (!activeDragId) {
+      const ids = todayItems
+        .filter((i) => !i.completed)
+        .sort((a, b) => a.order - b.order)
+        .map((i) => i.id);
+      setLocalOrder(ids);
+      localOrderRef.current = ids;
     }
-    if (rolled.length) {
-      rows.push({ kind: 'section', id: 'h-rolled', title: 'Carried over', count: rolled.length });
-      rolled.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
-    }
-    // Completed items sink to the bottom
-    if (completedItems.length) {
-      rows.push({ kind: 'section', id: 'h-completed', title: 'Done', count: completedItems.length });
-      completedItems.forEach((it) => rows.push({ kind: 'item', id: it.id, item: it }));
-    }
-    return rows;
-  }, [todayItems, today]);
+  }, [todayItems, activeDragId]);
 
+  const incompleteItemsOrdered = useMemo(() => {
+    const incomplete = todayItems.filter((i) => !i.completed);
+    const idToItem = new Map(incomplete.map((it) => [it.id, it]));
+    return localOrder
+      .map((id) => idToItem.get(id))
+      .filter(Boolean) as DailyItem[];
+  }, [todayItems, localOrder]);
+
+  const completedItems = useMemo(
+    () => todayItems.filter((i) => i.completed),
+    [todayItems]
+  );
+
+  const handleDragStart = useCallback((id: string) => {
+    const idx = localOrderRef.current.indexOf(id);
+    const safeIdx = idx >= 0 ? idx : 0;
+    dragStartIdx.current = safeIdx;
+    lastSwapIdx.current = safeIdx;
+    setActiveDragId(id);
+  }, []);
+
+  const handleDragMove = useCallback((dy: number) => {
+    const targetIdx =
+      Math.round(dy / ITEM_H) + dragStartIdx.current;
+    const clamped = Math.max(
+      0,
+      Math.min(localOrderRef.current.length - 1, targetIdx)
+    );
+    if (clamped !== lastSwapIdx.current) {
+      const newOrder = [...localOrderRef.current];
+      const movedId = newOrder[lastSwapIdx.current];
+      newOrder.splice(lastSwapIdx.current, 1);
+      newOrder.splice(clamped, 0, movedId);
+      lastSwapIdx.current = clamped;
+      localOrderRef.current = newOrder;
+      setLocalOrder([...newOrder]);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    reorderDailyItems(today, localOrderRef.current);
+    setActiveDragId(null);
+  }, [reorderDailyItems, today]);
+
+  // ── Project color lookup ───────────────────────────────────────────────────
   const getProjectColor = useCallback(
     (projectId?: string) => {
       if (!projectId) return undefined;
@@ -111,15 +144,13 @@ const TodayScreen: React.FC = () => {
     [projects]
   );
 
-  // Track items mid-animation (completing but not yet moved to Done)
+  // ── Optimistic completion (delay move to Done until animation finishes) ────
   const [optimisticCompleted, setOptimisticCompleted] = useState<Set<string>>(new Set());
 
   const handleToggle = (itemId: string, currentlyCompleted: boolean) => {
     if (currentlyCompleted) {
-      // Unchecking: move back immediately
       toggleDailyItem(today, itemId);
     } else {
-      // Checking: show animation first, then move to Done after 350ms
       setOptimisticCompleted((prev) => new Set(prev).add(itemId));
       setTimeout(() => {
         toggleDailyItem(today, itemId);
@@ -139,38 +170,8 @@ const TodayScreen: React.FC = () => {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const renderRow = ({ item: row }: { item: ListRow }) => {
-    if (row.kind === 'section') {
-      return (
-        <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>
-            {row.title.toUpperCase()}
-          </Text>
-          <Text style={[styles.sectionCount, { color: colors.textTertiary }]}>
-            {row.count}
-          </Text>
-        </View>
-      );
-    }
-    const effectiveCompleted = row.item.completed || optimisticCompleted.has(row.item.id);
-    return (
-      <CheckItem
-        title={row.item.title}
-        completed={effectiveCompleted}
-        source={row.item.source}
-        time={row.item.time}
-        rolledFromDate={row.item.source === 'rollover' ? row.item.rolledOverFromDate : undefined}
-        projectColor={getProjectColor(row.item.projectId)}
-        onToggle={() => handleToggle(row.item.id, effectiveCompleted)}
-        onLongPress={() => handleLongPress(row.item)}
-      />
-    );
-  };
-
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
-    >
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
@@ -199,20 +200,14 @@ const TodayScreen: React.FC = () => {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => navigation.navigate('Calendar')}
-            style={[
-              styles.statsButton,
-              { backgroundColor: colors.surfaceElevated },
-            ]}
+            style={[styles.statsButton, { backgroundColor: colors.surfaceElevated }]}
             accessibilityLabel="View calendar"
           >
             <Text style={{ fontSize: 16 }}>🗓</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('Stats')}
-            style={[
-              styles.statsButton,
-              { backgroundColor: colors.surfaceElevated },
-            ]}
+            style={[styles.statsButton, { backgroundColor: colors.surfaceElevated }]}
             accessibilityLabel="View stats"
           >
             <Text style={{ fontSize: 16 }}>📊</Text>
@@ -247,16 +242,97 @@ const TodayScreen: React.FC = () => {
           subtitle="Add items to your weekly template or assign project tasks to today."
         />
       ) : (
-        <FlatList
-          data={listData}
-          keyExtractor={(row) => row.id}
-          renderItem={renderRow}
+        <ScrollView
+          scrollEnabled={!activeDragId}
           contentContainerStyle={{
             paddingHorizontal: spacing.md,
             paddingBottom: spacing.xxl,
           }}
           showsVerticalScrollIndicator={false}
-        />
+        >
+          {/* ── Incomplete items (draggable) ── */}
+          {incompleteItemsOrdered.map((item) => {
+            const isDragging = item.id === activeDragId;
+            const effectiveCompleted =
+              item.completed || optimisticCompleted.has(item.id);
+            return (
+              <View
+                key={item.id}
+                style={[
+                  styles.draggableRow,
+                  isDragging && {
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.md,
+                    opacity: 0.85,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  },
+                ]}
+              >
+                <DragHandle
+                  onDragStart={() => handleDragStart(item.id)}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  color={colors.textTertiary}
+                />
+                <View style={{ flex: 1 }}>
+                  <CheckItem
+                    title={item.title}
+                    completed={effectiveCompleted}
+                    source={item.source}
+                    time={item.time}
+                    rolledFromDate={
+                      item.source === 'rollover'
+                        ? item.rolledOverFromDate
+                        : undefined
+                    }
+                    projectColor={getProjectColor(item.projectId)}
+                    onToggle={() => handleToggle(item.id, effectiveCompleted)}
+                    onLongPress={() => handleLongPress(item)}
+                  />
+                </View>
+              </View>
+            );
+          })}
+
+          {/* ── Done section ── */}
+          {completedItems.length > 0 && (
+            <View style={{ marginTop: spacing.lg }}>
+              <View style={[styles.sectionHeader]}>
+                <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>
+                  DONE
+                </Text>
+                <Text style={[styles.sectionCount, { color: colors.textTertiary }]}>
+                  {completedItems.length}
+                </Text>
+              </View>
+              {completedItems.map((item) => {
+                const effectiveCompleted =
+                  item.completed || optimisticCompleted.has(item.id);
+                return (
+                  <CheckItem
+                    key={item.id}
+                    title={item.title}
+                    completed={effectiveCompleted}
+                    source={item.source}
+                    time={item.time}
+                    rolledFromDate={
+                      item.source === 'rollover'
+                        ? item.rolledOverFromDate
+                        : undefined
+                    }
+                    projectColor={getProjectColor(item.projectId)}
+                    onToggle={() => handleToggle(item.id, effectiveCompleted)}
+                    onLongPress={() => handleLongPress(item)}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -294,6 +370,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 5,
     textAlign: 'right',
+  },
+  draggableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
