@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Settings Button Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    background: #F0F0F5;
+    padding: 40px 24px;
+    color: #1a1a1a;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 32px;
+    color: #111;
+  }
+  .option-block {
+    background: #fff;
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .option-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .option-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .option-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111;
+  }
+  .option-desc {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .phone-frame {
+    width: 320px;
+    border-radius: 40px;
+    border: 8px solid #1a1a1a;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    position: relative;
+  }
+  .phone-screen {
+    width: 100%;
+    height: 220px;
+    background: #F7F7F7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .screen-label {
+    font-size: 14px;
+    color: #bbb;
+    font-weight: 500;
+  }
+  .screen-icon {
+    font-size: 28px;
+    opacity: 0.25;
+  }
+
+  /* ── Tab bar base ── */
+  .tab-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    background: #FFFFFF;
+    border-top: 0.5px solid #E4E4E4;
+    padding-top: 8px;
+    padding-bottom: 16px;
+    width: 100%;
+  }
+  .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 0;
+    flex: 2;
+  }
+  .tab-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+  .tab-label {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .tab-sep {
+    width: 1px;
+    background: #E4E4E4;
+    margin: 6px 0;
+    opacity: 0.35;
+    align-self: stretch;
+  }
+
+  /* Active = accent blue, inactive = #999 */
+  .active   { color: #2D6BE4; }
+  .inactive { color: #999999; }
+
+  /* ── Current (baseline) chip ── */
+  .current-chip {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    background: #F0F4FF;
+    color: #2D6BE4;
+    border: 1px solid #C8D9F8;
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin-bottom: 16px;
+  }
+
+  /* Settings-specific overrides per option */
+
+  /* Option 1 — icon only */
+  .opt1-settings { flex: 1; }
+  .opt1-settings .tab-icon { font-size: 14px; }
+
+  /* Option 2 — opacity fade */
+  .opt2-settings { flex: 1; opacity: 0.42; }
+  .opt2-settings .tab-icon { font-size: 14px; }
+  .opt2-settings .tab-label { font-size: 8px; }
+
+  /* Option 3 — smaller everything */
+  .opt3-settings { flex: 1; }
+  .opt3-settings .tab-icon { font-size: 11px; }
+  .opt3-settings .tab-label { font-size: 6px; }
+
+  /* Option 4 — always muted, no accent */
+  .opt4-settings { flex: 1; }
+  .opt4-settings .tab-icon { font-size: 14px; }
+  .opt4-settings .tab-label { font-size: 8px; }
+
+  /* Option 5 — fixed narrow width */
+  .opt5-settings { flex: none; width: 38px; }
+  .opt5-settings .tab-icon { font-size: 13px; }
+
+  /* Side-by-side comparison */
+  .pair {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .pair-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pair-sublabel {
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-active {
+    display: inline-block;
+    font-size: 10px;
+    background: #eaf0fe;
+    color: #2D6BE4;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+  }
+  .badge-inactive {
+    display: inline-block;
+    font-size: 10px;
+    background: #f2f2f2;
+    color: #999;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h1>Settings Button — 5 Options</h1>
+
+<!-- ─── CURRENT STATE ─────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Current</span>
+    <span class="option-title">Baseline (what it looks like now)</span>
+  </div>
+  <p class="option-desc">flex:1 width, gear at fontSize 15, label at fontSize 8. Already narrower than other tabs.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">📅</span><span class="screen-label">Calendar</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive" style="flex:1"><span class="tab-icon" style="font-size:15px">⚙</span><span class="tab-label" style="font-size:8px">Settings</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab active" style="flex:1"><span class="tab-icon" style="font-size:15px">⚙</span><span class="tab-label" style="font-size:8px">Settings</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OPTION 1 ─────────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Option 1</span>
+    <span class="option-title">Icon only — no label</span>
+  </div>
+  <p class="option-desc">Remove the "Settings" text entirely. Just a small gear sits quietly at the edge. Least visual weight of any option.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">📋</span><span class="screen-label">Add To Do</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive opt1-settings"><span class="tab-icon">⚙</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab active opt1-settings"><span class="tab-icon">⚙</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OPTION 2 ─────────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Option 2</span>
+    <span class="option-title">Reduced opacity (~45%)</span>
+  </div>
+  <p class="option-desc">Keeps the same shape and size but fades the entire button. Subtle — easy to miss, easy to find when you need it.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">☀</span><span class="screen-label">Today</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive opt2-settings"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab active opt2-settings" style="opacity:0.6"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OPTION 3 ─────────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Option 3</span>
+    <span class="option-title">Smaller icon + micro label</span>
+  </div>
+  <p class="option-desc">Shrink gear from 15→11px and label from 8→6px. Everything is still there, just physically tiny.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">☀</span><span class="screen-label">Today</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive opt3-settings"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab active opt3-settings"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OPTION 4 ─────────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Option 4</span>
+    <span class="option-title">Always muted — never accent-colored</span>
+  </div>
+  <p class="option-desc">Settings never turns blue when focused. Size stays the same but it never "pops" — other tabs highlight normally.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">☀</span><span class="screen-label">Today</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive opt4-settings"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active <span style="font-size:10px;color:#999">(stays muted)</span></span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <!-- stays inactive color even when active -->
+          <div class="tab inactive opt4-settings"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OPTION 5 ─────────────────────────────────────────────── -->
+<div class="option-block">
+  <div class="option-header">
+    <span class="option-num">Option 5</span>
+    <span class="option-title">Fixed narrow width (icon only, edge-pinned)</span>
+  </div>
+  <p class="option-desc">Removes flex sizing entirely, sets a fixed 38px width. The gear is pinned to the far right edge, no label, maximally compressed.</p>
+  <div class="pair">
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings inactive</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">☀</span><span class="screen-label">Today</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive opt5-settings"><span class="tab-icon">⚙</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pair-col">
+      <span class="pair-sublabel">Settings active</span>
+      <div class="phone-frame">
+        <div class="phone-screen"><span class="screen-icon">⚙</span><span class="screen-label">Settings</span></div>
+        <div class="tab-bar">
+          <div class="tab inactive"><span class="tab-icon">☀</span><span class="tab-label">Today</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab inactive"><span class="tab-icon">📋</span><span class="tab-label">Add To Do</span></div>
+          <div class="tab-sep"></div>
+          <div class="tab active opt5-settings"><span class="tab-icon">⚙</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
