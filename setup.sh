@@ -14,11 +14,15 @@ if [ "$NODE_VERSION" -lt 18 ]; then
   exit 1
 fi
 
+# ── Pull latest code ─────────────────────────────────────────────────────────
+echo "Pulling latest code..."
+git pull origin claude/ios-todo-app-HY1Wv
+
 # ── Install dependencies ─────────────────────────────────────────────────────
 echo "Installing dependencies..."
 npm install
 
-# ── Start Expo ───────────────────────────────────────────────────────────────
+# ── Start Expo (clear cache so you always get the latest build) ───────────────
 echo ""
 echo "Starting DailyDo..."
 echo ""
@@ -26,4 +30,4 @@ echo "  Press  i  →  iOS Simulator    (macOS + Xcode required)"
 echo "  Press  a  →  Android Emulator (Android Studio required)"
 echo "  Scan QR   →  Expo Go on your phone (no simulator needed)"
 echo ""
-npx expo start
+npx expo start --clear
